@@ -1142,7 +1142,49 @@ static bool PackCollectorArrayForBootstrapMethod(Thread* self,
 
   ObjPtr<mirror::ObjectArray<mirror::Class>> class_roots = class_linker->GetClassRoots();
   ObjPtr<mirror::Class> component_type = array_type->GetComponentType();
-  if (component_type == GetClassRoot(ClassRoot::kPrimitiveInt, class_roots)) {
+  if (component_type->IsObjectClass()) {
+    // Mixed argument types, as passed to LambdaMetafactory.altMetafactory: box primitives.
+    Handle<mirror::ObjectArray<mirror::Object>> array =
+        hs.NewHandle(mirror::ObjectArray<mirror::Object>::Alloc(self, array_type, array_length));
+    if (array.IsNull()) {
+      return false;
+    }
+    for (int32_t i = 0; it->HasNext(); it->Next(), ++i) {
+      auto type = it->GetValueType();
+      const JValue encoded_value = ConvertScalarBootstrapArgument(it->GetJavaValue());
+      if (!GetArgumentForBootstrapMethod(self, referrer, type, &encoded_value, &decoded_value)) {
+        return false;
+      }
+      ObjPtr<mirror::Object> o;
+      switch (type) {
+        case EncodedArrayValueIterator::ValueType::kInt:
+          o = BoxPrimitive(Primitive::kPrimInt, decoded_value);
+          break;
+        case EncodedArrayValueIterator::ValueType::kFloat:
+          o = BoxPrimitive(Primitive::kPrimFloat, decoded_value);
+          break;
+        case EncodedArrayValueIterator::ValueType::kLong:
+          o = BoxPrimitive(Primitive::kPrimLong, decoded_value);
+          break;
+        case EncodedArrayValueIterator::ValueType::kDouble:
+          o = BoxPrimitive(Primitive::kPrimDouble, decoded_value);
+          break;
+        default:
+          o = decoded_value.GetL();
+          break;
+      }
+      if (o == nullptr && self->IsExceptionPending()) {
+        return false;
+      }
+      if (Runtime::Current()->IsActiveTransaction()) {
+        array->Set<true>(i, o);
+      } else {
+        array->Set<false>(i, o);
+      }
+    }
+    setter->SetReference(array.Get());
+    return true;
+  } else if (component_type == GetClassRoot(ClassRoot::kPrimitiveInt, class_roots)) {
     COLLECT_PRIMITIVE_ARRAY(I, Int);
   } else if (component_type == GetClassRoot(ClassRoot::kPrimitiveLong, class_roots)) {
     COLLECT_PRIMITIVE_ARRAY(J, Long);
@@ -1290,8 +1332,10 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
       return nullptr;
     }
     // Check all the arguments to be collected match the collector array component type.
+    // An Object[] collects anything, boxing primitives (LambdaMetafactory.altMetafactory).
     for (int i = number_of_bsm_parameters - 1; i < call_site_type->GetNumberOfPTypes(); ++i) {
-      if (call_site_type->GetPTypes()->Get(i) != collector_array_class->GetComponentType()) {
+      if (call_site_type->GetPTypes()->Get(i) != collector_array_class->GetComponentType() &&
+          !collector_array_class->GetComponentType()->IsObjectClass()) {
         ThrowClassCastException(collector_array_class->GetComponentType(),
                                 call_site_type->GetPTypes()->Get(i));
         return nullptr;

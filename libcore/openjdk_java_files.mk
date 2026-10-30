@@ -240,6 +240,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/lang/VirtualMachineError.java \
     ojluni/src/main/java/java/lang/Void.java \
     ojluni/src/main/java/java/lang/invoke/LambdaConversionException.java \
+    ojluni/src/main/java/java/lang/invoke/LambdaProxy.java \
     ojluni/src/main/java/java/lang/invoke/CallSite.java \
     ojluni/src/main/java/java/lang/invoke/ConstantCallSite.java \
     ojluni/src/main/java/java/lang/invoke/MethodHandle.java \

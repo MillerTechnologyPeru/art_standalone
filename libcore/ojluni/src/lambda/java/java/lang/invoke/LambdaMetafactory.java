@@ -25,6 +25,11 @@
 
 package java.lang.invoke;
 
+/*
+ * Android desugars lambdas at build time, so upstream this class is a stub. art_standalone dexes
+ * libcore (and apps may ship code) with invoke-custom left in, so implement it at runtime on top of
+ * java.lang.reflect.Proxy; see LambdaProxy.
+ */
 public class LambdaMetafactory {
 
     public static final int FLAG_SERIALIZABLE = 1 << 0;
@@ -39,11 +44,32 @@ public class LambdaMetafactory {
                                        MethodType samMethodType,
                                        MethodHandle implMethod,
                                        MethodType instantiatedMethodType)
-            throws LambdaConversionException { return null; }
+            throws LambdaConversionException {
+        return LambdaProxy.makeCallSite(caller, invokedName, invokedType, implMethod, new Class<?>[0]);
+    }
 
     public static CallSite altMetafactory(MethodHandles.Lookup caller,
                                           String invokedName,
                                           MethodType invokedType,
                                           Object... args)
-            throws LambdaConversionException { return null; }
+            throws LambdaConversionException {
+        // args: samMethodType, implMethod, instantiatedMethodType, flags, [markerCount, markers...],
+        // [bridgeCount, bridges...]; bridges need no handling as dispatch is by method name
+        MethodHandle implMethod = (MethodHandle) args[1];
+        int flags = (Integer) args[3];
+        int argIndex = 4;
+        Class<?>[] markers = new Class<?>[0];
+        if ((flags & FLAG_MARKERS) != 0) {
+            int markerCount = (Integer) args[argIndex++];
+            markers = new Class<?>[markerCount];
+            for (int i = 0; i < markerCount; i++)
+                markers[i] = (Class<?>) args[argIndex++];
+        }
+        if ((flags & FLAG_SERIALIZABLE) != 0) {
+            Class<?>[] withSerializable = java.util.Arrays.copyOf(markers, markers.length + 1);
+            withSerializable[markers.length] = java.io.Serializable.class;
+            markers = withSerializable;
+        }
+        return LambdaProxy.makeCallSite(caller, invokedName, invokedType, implMethod, markers);
+    }
 }
