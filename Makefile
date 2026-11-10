@@ -132,6 +132,13 @@ endif
 	mkdir -p $(____INSTALL_LIBDIR)/pkgconfig
 	install -m644 art-standalone.pc $(____INSTALL_LIBDIR)/pkgconfig/
 
+# install, without the debug info: it is most of the libraries' size (libart.so
+# alone has about 250 MB of it). Their symbols stay, for ART's backtraces.
+____STRIP ?= strip
+install-strip: install
+	find $(____INSTALL_LIBDIR)/art $(____INSTALL_LIBDIR)/java/dex/art/natives -name "*.so" -exec $(____STRIP) --strip-debug {} +
+	$(____STRIP) --strip-debug $(wildcard $(____INSTALL_BINDIR)/dalvikvm $(____INSTALL_BINDIR)/dalvikvm64 $(____INSTALL_BINDIR)/dex2oat)
+
 # TODO: figure out sharing dependencies and have this in a separate repo
 install_adbd:
 	install -Dt $(____INSTALL_BINDIR) $(____TOPDIR)/out/host/linux-x86/bin/adbd
