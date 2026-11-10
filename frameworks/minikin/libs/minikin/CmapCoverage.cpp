@@ -19,6 +19,7 @@
 #include "minikin/CmapCoverage.h"
 
 #include <algorithm>
+#include <climits>
 #include <vector>
 
 #include "minikin/Range.h"
