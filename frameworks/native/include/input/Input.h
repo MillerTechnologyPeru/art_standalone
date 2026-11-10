@@ -160,7 +160,7 @@ struct AInputDevice {
 
 namespace android {
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__GLIBC__) // with libbinder's Parcel
 class Parcel;
 #endif
 
@@ -286,7 +286,7 @@ struct PointerCoords {
         return getAxisValue(AMOTION_EVENT_AXIS_Y);
     }
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__GLIBC__) // with libbinder's Parcel
     status_t readFromParcel(Parcel* parcel);
     status_t writeToParcel(Parcel* parcel) const;
 #endif
@@ -635,7 +635,7 @@ public:
     // Matrix is in row-major form and compatible with SkMatrix.
     void transform(const float matrix[9]);
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__GLIBC__) // with libbinder's Parcel
     status_t readFromParcel(Parcel* parcel);
     status_t writeToParcel(Parcel* parcel) const;
 #endif
