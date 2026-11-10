@@ -67,7 +67,7 @@ endef
 # Many modules expect to be able to say "#include <jni.h>",
 # so make it easy for them to find the correct path.
 #
-JNI_H_INCLUDE := $(call include-path-for,libnativehelper)/nativehelper
+JNI_H_INCLUDE := libnativehelper/include_jni
 
 #
 # A list of all source roots under frameworks/base, which will be
