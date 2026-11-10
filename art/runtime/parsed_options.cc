@@ -595,7 +595,8 @@ bool ParsedOptions::DoParse(const RuntimeOptions& options,
                                         bootclasspath_prefix + "/core-libart.jar"  + ':' +
                                         bootclasspath_prefix + "/okhttp.jar"       + ':' +
                                         bootclasspath_prefix + "/bouncycastle.jar" + ':' +
-                                        bootclasspath_prefix + "/apache-xml.jar";
+                                        bootclasspath_prefix + "/apache-xml.jar"   + ':' +
+                                        bootclasspath_prefix + "/conscrypt.jar";
       free(bootclasspath_prefix);
 
       if(args.Exists(M::BootClassPath_a))
