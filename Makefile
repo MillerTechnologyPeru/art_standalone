@@ -75,7 +75,7 @@ endif
 
 default: ____art_all
 
-____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libandroid_runtime art-standalone.pc
+____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libui libnativewindow libgui libhwui libandroid_runtime art-standalone.pc
 
 art-standalone.pc: art-standalone.pc.in
 	sed -e 's|@prefix@|$(____PREFIX)|g' \
@@ -99,6 +99,11 @@ install:
 # these are mostly internal libs which there's no point in versioning because they don't have any kind of stable ABI - so we just shove them in art/ namespace
 # even the libunwind is actually a fork of libunwind 1.1 with added stuff that will likely never be upstreamed, especially since google stopped using libunwind
 	install -Dt $(____INSTALL_LIBDIR)/art/ $(____TOPDIR)/out/host/linux-x86/lib64/libandroidfw.so \
+	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libmead_android10_compat.so \
+	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libgui.so \
+	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libhwui.so \
+	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libnativewindow.so \
+	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libui.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libart.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libart-compiler.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libart-dexlayout.so \
