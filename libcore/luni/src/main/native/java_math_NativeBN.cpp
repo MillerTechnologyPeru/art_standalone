@@ -31,6 +31,90 @@
 
 #include "JniException.h"
 
+#if !defined(OPENSSL_IS_BORINGSSL)
+// The distribution's OpenSSL stands in for BoringSSL here. These are the
+// BoringSSL functions NativeBN uses, written with OpenSSL's.
+
+static int BN_set_u64(BIGNUM* bn, uint64_t value) {
+  uint8_t bytes[sizeof(value)];
+  for (size_t i = 0; i < sizeof(value); i++) {
+    bytes[i] = static_cast<uint8_t>(value >> (8 * i));
+  }
+  return BN_lebin2bn(bytes, sizeof(bytes), bn) != nullptr;
+}
+
+// Fails when |bn| doesn't fit in 64 bits, as BoringSSL's does.
+static int BN_get_u64(const BIGNUM* bn, uint64_t* out) {
+  if (BN_num_bits(bn) > 64) {
+    return 0;
+  }
+  uint8_t bytes[sizeof(*out)];
+  if (BN_bn2lebinpad(bn, bytes, sizeof(bytes)) < 0) {
+    return 0;
+  }
+  uint64_t value = 0;
+  for (size_t i = 0; i < sizeof(bytes); i++) {
+    value |= static_cast<uint64_t>(bytes[i]) << (8 * i);
+  }
+  *out = value;
+  return 1;
+}
+
+static BIGNUM* BN_le2bn(const uint8_t* in, size_t length, BIGNUM* out) {
+  return BN_lebin2bn(in, static_cast<int>(length), out);
+}
+
+static int BN_bn2le_padded(uint8_t* out, size_t length, const BIGNUM* in) {
+  return BN_bn2lebinpad(in, out, static_cast<int>(length)) >= 0;
+}
+
+// r = a mod 2^e, never negative.
+static int BN_nnmod_pow2(BIGNUM* r, const BIGNUM* a, size_t e) {
+  if (r != a && BN_copy(r, a) == nullptr) {
+    return 0;
+  }
+  bool negative = BN_is_negative(r);
+  BN_set_negative(r, 0);
+  if (static_cast<size_t>(BN_num_bits(r)) > e) {
+    BN_mask_bits(r, static_cast<int>(e));
+  }
+  if (negative && !BN_is_zero(r)) {
+    BIGNUM* power = BN_new();
+    if (power == nullptr || !BN_set_bit(power, static_cast<int>(e)) || !BN_sub(r, power, r)) {
+      BN_free(power);
+      return 0;
+    }
+    BN_free(power);
+  }
+  return 1;
+}
+
+static int BN_is_pow2(const BIGNUM* bn) {
+  int bits = BN_num_bits(bn);
+  if (bits == 0) {
+    return 0;
+  }
+  for (int i = 0; i < bits - 1; i++) {
+    if (BN_is_bit_set(bn, i)) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+// OpenSSL chooses how many rounds to run; |checks| and trial division are
+// its call.
+static int BN_primality_test(int* is_probably_prime, const BIGNUM* candidate, int /*checks*/,
+                             BN_CTX* ctx, int /*do_trial_division*/, BN_GENCB* callback) {
+  int result = BN_check_prime(candidate, ctx, callback);
+  if (result < 0) {
+    return 0;
+  }
+  *is_probably_prime = result;
+  return 1;
+}
+#endif
+
 struct BN_CTX_Deleter {
   void operator()(BN_CTX* p) const {
     BN_CTX_free(p);
@@ -375,19 +459,16 @@ static int NativeBN_bitLength(JNIEnv* env, jclass, jlong a0) {
 
   // In the negative case, the number of bits in a is the same as the number of bits in |a|,
   // except one less when |a| is a power of two.
-  BIGNUM positiveA;
-  BN_init(&positiveA);
-
-  if (!BN_copy(&positiveA, a)) {
-    BN_free(&positiveA);
+  BIGNUM* positiveA = BN_dup(a);
+  if (positiveA == nullptr) {
     throwException(env);
     return -1;
   }
 
-  BN_set_negative(&positiveA, false);
-  int numBits = BN_is_pow2(&positiveA) ? BN_num_bits(&positiveA) - 1 : BN_num_bits(&positiveA);
+  BN_set_negative(positiveA, false);
+  int numBits = BN_is_pow2(positiveA) ? BN_num_bits(positiveA) - 1 : BN_num_bits(positiveA);
 
-  BN_free(&positiveA);
+  BN_free(positiveA);
   return numBits;
 }
 
