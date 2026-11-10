@@ -78,6 +78,14 @@ extern int register_android_view_DisplayListCanvas(JNIEnv* env);
 extern int register_android_view_ThreadedRenderer(JNIEnv* env);
 extern int register_android_view_Surface(JNIEnv* env);
 extern int register_android_os_MessageQueue(JNIEnv* env);
+extern int register_android_view_InputChannel(JNIEnv* env);
+extern int register_android_view_InputEventReceiver(JNIEnv* env);
+extern int register_android_view_KeyEvent(JNIEnv* env);
+extern int register_android_view_MotionEvent(JNIEnv* env);
+extern int register_android_view_InputDevice(JNIEnv* env);
+extern int register_android_view_KeyCharacterMap(JNIEnv* env);
+extern int register_android_view_VelocityTracker(JNIEnv* env);
+extern int register_android_view_DisplayEventReceiver(JNIEnv* env);
 extern int register_android_graphics_Canvas(JNIEnv* env);
 extern int register_android_graphics_CanvasProperty(JNIEnv* env);
 extern int register_android_graphics_ColorFilter(JNIEnv* env);
@@ -203,6 +211,14 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_graphics_text_LineBreaker),
     REG_JNI(register_android_hardware_HardwareBuffer),
     REG_JNI(register_android_os_MessageQueue),
+    REG_JNI(register_android_view_InputChannel),
+    REG_JNI(register_android_view_InputEventReceiver),
+    REG_JNI(register_android_view_KeyEvent),
+    REG_JNI(register_android_view_MotionEvent),
+    REG_JNI(register_android_view_InputDevice),
+    REG_JNI(register_android_view_KeyCharacterMap),
+    REG_JNI(register_android_view_VelocityTracker),
+    REG_JNI(register_android_view_DisplayEventReceiver),
 };
 
 }  // namespace android
