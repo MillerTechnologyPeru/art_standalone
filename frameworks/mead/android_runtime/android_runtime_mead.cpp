@@ -39,8 +39,27 @@
 #include <android_runtime/AndroidRuntime.h>
 #undef private
 
-// android_util_Binder.cpp defines its register function outside the namespace.
+// android_util_Binder.cpp and some of the graphics JNI define their register
+// functions outside the namespace.
 extern int register_android_os_Binder(JNIEnv* env);
+extern int register_android_hardware_HardwareBuffer(JNIEnv* env);
+extern int register_android_graphics_Bitmap(JNIEnv* env);
+extern int register_android_graphics_BitmapFactory(JNIEnv* env);
+extern int register_android_graphics_BitmapRegionDecoder(JNIEnv* env);
+extern int register_android_graphics_ByteBufferStreamAdaptor(JNIEnv* env);
+extern int register_android_graphics_Camera(JNIEnv* env);
+extern int register_android_graphics_CreateJavaOutputStreamAdaptor(JNIEnv* env);
+extern int register_android_graphics_GraphicBuffer(JNIEnv* env);
+extern int register_android_graphics_Graphics(JNIEnv* env);
+extern int register_android_graphics_ImageDecoder(JNIEnv* env);
+extern int register_android_graphics_drawable_AnimatedImageDrawable(JNIEnv* env);
+extern int register_android_graphics_Interpolator(JNIEnv* env);
+extern int register_android_graphics_MaskFilter(JNIEnv* env);
+extern int register_android_graphics_NinePatch(JNIEnv* env);
+extern int register_android_graphics_PathEffect(JNIEnv* env);
+extern int register_android_graphics_Shader(JNIEnv* env);
+extern int register_android_graphics_Typeface(JNIEnv* env);
+extern int register_android_graphics_YuvImage(JNIEnv* env);
 
 namespace android {
 
@@ -53,6 +72,24 @@ extern int register_android_content_AssetManager(JNIEnv* env);
 extern int register_android_content_res_ApkAssets(JNIEnv* env);
 extern int register_android_content_StringBlock(JNIEnv* env);
 extern int register_android_content_XmlBlock(JNIEnv* env);
+extern int register_android_graphics_Canvas(JNIEnv* env);
+extern int register_android_graphics_CanvasProperty(JNIEnv* env);
+extern int register_android_graphics_ColorFilter(JNIEnv* env);
+extern int register_android_graphics_ColorSpace(JNIEnv* env);
+extern int register_android_graphics_DrawFilter(JNIEnv* env);
+extern int register_android_graphics_FontFamily(JNIEnv* env);
+extern int register_android_graphics_Matrix(JNIEnv* env);
+extern int register_android_graphics_Paint(JNIEnv* env);
+extern int register_android_graphics_Path(JNIEnv* env);
+extern int register_android_graphics_PathMeasure(JNIEnv* env);
+extern int register_android_graphics_Picture(JNIEnv* env);
+extern int register_android_graphics_Region(JNIEnv* env);
+extern int register_android_graphics_drawable_AnimatedVectorDrawable(JNIEnv* env);
+extern int register_android_graphics_drawable_VectorDrawable(JNIEnv* env);
+extern int register_android_graphics_fonts_Font(JNIEnv* env);
+extern int register_android_graphics_fonts_FontFamily(JNIEnv* env);
+extern int register_android_graphics_text_MeasuredText(JNIEnv* env);
+extern int register_android_graphics_text_LineBreaker(JNIEnv* env);
 
 JavaVM* AndroidRuntime::mJavaVM = nullptr;
 
@@ -118,6 +155,42 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_os_Binder),
     REG_JNI(register_android_os_Parcel),
     REG_JNI(register_android_os_Trace),
+    REG_JNI(register_android_graphics_Canvas),
+    REG_JNI(register_android_graphics_ColorSpace),
+    REG_JNI(register_android_graphics_Graphics),
+    REG_JNI(register_android_graphics_Bitmap),
+    REG_JNI(register_android_graphics_BitmapFactory),
+    REG_JNI(register_android_graphics_BitmapRegionDecoder),
+    REG_JNI(register_android_graphics_ByteBufferStreamAdaptor),
+    REG_JNI(register_android_graphics_Camera),
+    REG_JNI(register_android_graphics_CreateJavaOutputStreamAdaptor),
+    REG_JNI(register_android_graphics_CanvasProperty),
+    REG_JNI(register_android_graphics_ColorFilter),
+    REG_JNI(register_android_graphics_DrawFilter),
+    REG_JNI(register_android_graphics_FontFamily),
+    REG_JNI(register_android_graphics_GraphicBuffer),
+    REG_JNI(register_android_graphics_ImageDecoder),
+    REG_JNI(register_android_graphics_drawable_AnimatedImageDrawable),
+    REG_JNI(register_android_graphics_Interpolator),
+    REG_JNI(register_android_graphics_MaskFilter),
+    REG_JNI(register_android_graphics_Matrix),
+    REG_JNI(register_android_graphics_NinePatch),
+    REG_JNI(register_android_graphics_Paint),
+    REG_JNI(register_android_graphics_Path),
+    REG_JNI(register_android_graphics_PathMeasure),
+    REG_JNI(register_android_graphics_PathEffect),
+    REG_JNI(register_android_graphics_Picture),
+    REG_JNI(register_android_graphics_Region),
+    REG_JNI(register_android_graphics_Shader),
+    REG_JNI(register_android_graphics_Typeface),
+    REG_JNI(register_android_graphics_YuvImage),
+    REG_JNI(register_android_graphics_drawable_AnimatedVectorDrawable),
+    REG_JNI(register_android_graphics_drawable_VectorDrawable),
+    REG_JNI(register_android_graphics_fonts_Font),
+    REG_JNI(register_android_graphics_fonts_FontFamily),
+    REG_JNI(register_android_graphics_text_MeasuredText),
+    REG_JNI(register_android_graphics_text_LineBreaker),
+    REG_JNI(register_android_hardware_HardwareBuffer),
 };
 
 }  // namespace android
