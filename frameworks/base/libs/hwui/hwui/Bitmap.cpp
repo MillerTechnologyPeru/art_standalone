@@ -27,7 +27,6 @@
 #include <log/log.h>
 
 #include <binder/IServiceManager.h>
-#include <private/gui/ComposerService.h>
 #include <ui/PixelFormat.h>
 
 #include <SkCanvas.h>
@@ -243,7 +242,9 @@ Bitmap::~Bitmap() {
             break;
         case PixelStorageType::Heap:
             free(mPixelStorage.heap.address);
+#ifdef M_PURGE
             mallopt(M_PURGE, 0);
+#endif
             break;
         case PixelStorageType::Hardware:
             auto buffer = mPixelStorage.hardware.buffer;
