@@ -1,0 +1,31 @@
+# What android.os.Build and the rest of Android 10's framework read from
+# the system properties: the device it believes it runs on. As on Android,
+# where init loads /system/build.prop, libandroid_runtime loads this from
+# $ANDROID_ROOT/build.prop for every property not already set.
+ro.build.version.sdk=29
+ro.build.version.release=10
+ro.build.version.codename=REL
+ro.build.version.all_codenames=REL
+ro.build.version.incremental=1
+ro.build.version.preview_sdk=0
+ro.build.id=MEAD
+ro.build.display.id=MEAD
+ro.build.type=user
+ro.build.tags=release-keys
+ro.build.user=mead
+ro.build.host=mead
+ro.build.fingerprint=mead/mead/mead:10/MEAD/1:user/release-keys
+ro.product.brand=mead
+ro.product.manufacturer=mead
+ro.product.model=Mead
+ro.product.name=mead
+ro.product.device=mead
+ro.product.board=mead
+ro.board.platform=mead
+ro.hardware=mead
+ro.product.cpu.abi=@ABI@
+ro.product.cpu.abilist=@ABI@
+ro.product.cpu.abilist64=@ABI@
+ro.product.cpu.abilist32=
+ro.debuggable=0
+ro.secure=1
