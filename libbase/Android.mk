@@ -25,6 +25,7 @@ libbase_defaults_SRCS     =  \
         mapped_file.cpp \
         parsebool.cpp \
         parsenetaddress.cpp \
+        properties.cpp \
         posix_strerror_r.cpp \
         process.cpp \
         stringprintf.cpp \
