@@ -573,7 +573,7 @@ static SkScalar fade(SkScalar t) {
     return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-static SkScalar lerp(SkScalar t, SkScalar a, SkScalar b) {
+static SkScalar perlin_lerp(SkScalar t, SkScalar a, SkScalar b) {
     return a + t * (b - a);
 }
 
@@ -611,13 +611,13 @@ SkScalar SkPerlinNoiseShaderImpl::PerlinNoiseShaderContext::calculateImprovedNoi
         int B  = permutations[X + 1] + Y;
         int BA = permutations[B] + Z;
         int BB = permutations[B + 1] + Z;
-        result += lerp(w, lerp(v, lerp(u, grad(permutations[AA    ], px    , py    , pz    ),
+        result += perlin_lerp(w, perlin_lerp(v, perlin_lerp(u, grad(permutations[AA    ], px    , py    , pz    ),
                                           grad(permutations[BA    ], px - 1, py    , pz    )),
-                                  lerp(u, grad(permutations[AB    ], px    , py - 1, pz    ),
+                                  perlin_lerp(u, grad(permutations[AB    ], px    , py - 1, pz    ),
                                           grad(permutations[BB    ], px - 1, py - 1, pz    ))),
-                          lerp(v, lerp(u, grad(permutations[AA + 1], px    , py    , pz - 1),
+                          perlin_lerp(v, perlin_lerp(u, grad(permutations[AA + 1], px    , py    , pz - 1),
                                           grad(permutations[BA + 1], px - 1, py    , pz - 1)),
-                                  lerp(u, grad(permutations[AB + 1], px    , py - 1, pz - 1),
+                                  perlin_lerp(u, grad(permutations[AB + 1], px    , py - 1, pz - 1),
                                           grad(permutations[BB + 1], px - 1, py - 1, pz - 1)))) /
                    ratio;
         x *= 2;
