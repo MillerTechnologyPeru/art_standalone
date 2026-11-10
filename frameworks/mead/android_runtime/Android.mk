@@ -2,7 +2,8 @@
 # libandroid_runtime for the host: Android 10's framework JNI
 # (frameworks/base/core/jni), as much of it as runs here so far (now with
 # the graphics JNI over hwui, without Movie, SurfaceTexture and PDF, and
-# HardwareRenderer, RenderNode and Mead's own android.view.Surface), registered
+# HardwareRenderer, RenderNode and Mead's own android.view.Surface, input
+# events and channels, and Choreographer's display events), registered
 # from JNI_OnLoad by android_runtime_mead.cpp instead of by app_process.
 #
 
@@ -16,6 +17,16 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := \
     android_runtime_mead.cpp \
     android_view_Surface.cpp \
+    mead_input.cpp \
+    ../../../libandroidfw/DisplayEventDispatcher.cpp \
+    ../../base/core/jni/android_view_DisplayEventReceiver.cpp \
+    ../../base/core/jni/android_view_InputChannel.cpp \
+    ../../base/core/jni/android_view_InputDevice.cpp \
+    ../../base/core/jni/android_view_InputEventReceiver.cpp \
+    ../../base/core/jni/android_view_KeyCharacterMap.cpp \
+    ../../base/core/jni/android_view_KeyEvent.cpp \
+    ../../base/core/jni/android_view_MotionEvent.cpp \
+    ../../base/core/jni/android_view_VelocityTracker.cpp \
     ../../base/core/jni/android_os_MessageQueue.cpp \
     ../../base/core/jni/android_view_DisplayListCanvas.cpp \
     ../../base/core/jni/android_view_RenderNode.cpp \
@@ -75,6 +86,7 @@ LOCAL_SRC_FILES := \
 LOCAL_C_INCLUDES := \
     $(android_runtime_jni) \
     $(android_runtime_jni)/include \
+    $(LOCAL_PATH)/include \
     $(android_runtime_jni)/android/graphics \
     external/libjpeg-turbo \
     frameworks/mead/egl/include \
@@ -96,6 +108,7 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libgui \
     libhwui \
+    libinput \
     liblog \
     libnativehelper \
     libnativewindow \
