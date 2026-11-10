@@ -90,6 +90,18 @@ Math_pow(JNIEnv *env, jclass unused, jdouble d1, jdouble d2) {
     return pow(d1, d2);
 }
 
+
+#if defined(__GLIBC__)
+// glibc 2.43 added a second version of remainder. The original computes the
+// same IEEE remainder; asking for it keeps libopenjdk running on older
+// glibc, such as Debian 13's.
+#if defined(__aarch64__)
+__asm__(".symver remainder,remainder@GLIBC_2.17");
+#elif defined(__x86_64__)
+__asm__(".symver remainder,remainder@GLIBC_2.2.5");
+#endif
+#endif
+
 JNIEXPORT jdouble JNICALL
 Math_IEEEremainder(JNIEnv *env, jclass unused,
                                   jdouble dividend,
