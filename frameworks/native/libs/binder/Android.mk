@@ -57,9 +57,8 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 LOCAL_CFLAGS := -Wall -Wextra \
     -DENABLE_STRING8_OBSOLETE_METHODS -DENABLE_STRING16_OBSOLETE_METHODS \
     -include mead/android10_compat.h
-LOCAL_SHARED_LIBRARIES := libbase liblog libcutils libutils
-# libcutils' property functions, for libbinder and those linking it.
-LOCAL_WHOLE_STATIC_LIBRARIES := libmead_android10_compat
+# libcutils' property functions are in libmead_android10_compat.
+LOCAL_SHARED_LIBRARIES := libbase liblog libcutils libmead_android10_compat libutils
 LOCAL_LDLIBS := -lpthread
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
