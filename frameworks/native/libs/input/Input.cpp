@@ -23,7 +23,7 @@
 #include <input/Input.h>
 #include <input/InputEventLabels.h>
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__GLIBC__) // with libbinder's Parcel
 #include <binder/Parcel.h>
 #endif
 
@@ -167,7 +167,7 @@ void PointerCoords::applyOffset(float xOffset, float yOffset) {
     setAxisValue(AMOTION_EVENT_AXIS_Y, getY() + yOffset);
 }
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__GLIBC__) // with libbinder's Parcel
 status_t PointerCoords::readFromParcel(Parcel* parcel) {
     bits = parcel->readInt64();
 
@@ -447,7 +447,7 @@ void MotionEvent::transform(const float matrix[9]) {
     }
 }
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__GLIBC__) // with libbinder's Parcel
 status_t MotionEvent::readFromParcel(Parcel* parcel) {
     size_t pointerCount = parcel->readInt32();
     size_t sampleCount = parcel->readInt32();
