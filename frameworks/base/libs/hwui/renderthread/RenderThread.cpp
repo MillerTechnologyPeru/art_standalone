@@ -130,7 +130,15 @@ RenderThread& RenderThread::getInstance() {
     // This is a pointer because otherwise __cxa_finalize
     // will try to delete it like a Good Citizen but that causes us to crash
     // because we don't want to delete the RenderThread normally.
-    static RenderThread* sInstance = new RenderThread();
+    //
+    // libutils' Thread runs only once something holds a strong reference to
+    // it: this one is taken before starting it, and never dropped.
+    static RenderThread* sInstance = [] {
+        RenderThread* thread = new RenderThread();
+        thread->incStrong(nullptr);
+        thread->start("RenderThread");
+        return thread;
+    }();
     gHasRenderThreadInstance = true;
     return *sInstance;
 }
@@ -145,7 +153,6 @@ RenderThread::RenderThread()
         , mFunctorManager(WebViewFunctorManager::instance())
         , mVkManager(nullptr) {
     Properties::load();
-    start("RenderThread");
 }
 
 RenderThread::~RenderThread() {
