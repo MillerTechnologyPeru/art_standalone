@@ -25,6 +25,7 @@
 
 #include "jni.h"
 #include "jni_util.h"
+#include "MeadSystemPath.h"
 
 extern jfieldID IO_fd_fdID;
 extern jfieldID IO_handle_fdID;
@@ -84,16 +85,22 @@ void throwFileNotFoundException(JNIEnv *env, jstring path);
  * declares a unique variable.
  */
 
+/* Mead: paths in Android's /system are paths in ANDROID_ROOT (see
+ * MeadSystemPath.h), so var may be a copy, in _##var##mapped. */
 #define WITH_PLATFORM_STRING(env, strexp, var)                                \
     if (1) {                                                                  \
         const char *var;                                                      \
+        const char *_##var##chars;                                            \
+        char _##var##mapped[PATH_MAX];                                        \
         jstring _##var##str = (strexp);                                       \
         if (_##var##str == NULL) {                                            \
             JNU_ThrowNullPointerException((env), NULL);                       \
             goto _##var##end;                                                 \
         }                                                                     \
-        var = JNU_GetStringPlatformChars((env), _##var##str, NULL);           \
-        if (var == NULL) goto _##var##end;
+        _##var##chars = JNU_GetStringPlatformChars((env), _##var##str, NULL); \
+        if (_##var##chars == NULL) goto _##var##end;                          \
+        var = mead_system_path(_##var##chars, _##var##mapped,                 \
+                               sizeof(_##var##mapped));
 
 #define WITH_FIELD_PLATFORM_STRING(env, object, id, var)                      \
     WITH_PLATFORM_STRING(env,                                                 \
@@ -103,7 +110,7 @@ void throwFileNotFoundException(JNIEnv *env, jstring path);
                          var)
 
 #define END_PLATFORM_STRING(env, var)                                         \
-        JNU_ReleaseStringPlatformChars(env, _##var##str, var);                \
+        JNU_ReleaseStringPlatformChars(env, _##var##str, _##var##chars);      \
     _##var##end: ;                                                            \
     } else ((void)NULL)
 
