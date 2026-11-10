@@ -21,7 +21,6 @@
 #include "androidfw/Util.h"
 
 #include <string>
-#include <string_view>
 #include <vector>
 
 namespace android {
@@ -39,11 +38,11 @@ static bool parseMcc(const char* name, ResTable_config* out) {
     return true;
   }
   const char* c = name;
-  if (*c != 'm') return false;
+  if (tolower(*c) != 'm') return false;
   c++;
-  if (*c != 'c') return false;
+  if (tolower(*c) != 'c') return false;
   c++;
-  if (*c != 'c') return false;
+  if (tolower(*c) != 'c') return false;
   c++;
 
   const char* val = c;
@@ -69,11 +68,11 @@ static bool parseMnc(const char* name, ResTable_config* out) {
     return true;
   }
   const char* c = name;
-  if (*c != 'm') return false;
+  if (tolower(*c) != 'm') return false;
   c++;
-  if (*c != 'n') return false;
+  if (tolower(*c) != 'n') return false;
   c++;
-  if (*c != 'c') return false;
+  if (tolower(*c) != 'c') return false;
   c++;
 
   const char* val = c;
@@ -92,23 +91,6 @@ static bool parseMnc(const char* name, ResTable_config* out) {
   }
 
   return true;
-}
-
-static bool parseGrammaticalInflection(const std::string& name, ResTable_config* out) {
-  using namespace std::literals;
-  if (name == "feminine"sv) {
-    if (out) out->grammaticalInflection = ResTable_config::GRAMMATICAL_GENDER_FEMININE;
-    return true;
-  }
-  if (name == "masculine"sv) {
-    if (out) out->grammaticalInflection = ResTable_config::GRAMMATICAL_GENDER_MASCULINE;
-    return true;
-  }
-  if (name == "neuter"sv) {
-    if (out) out->grammaticalInflection = ResTable_config::GRAMMATICAL_GENDER_NEUTER;
-    return true;
-  }
-  return false;
 }
 
 static bool parseLayoutDirection(const char* name, ResTable_config* out) {
@@ -655,7 +637,7 @@ static bool parseVersion(const char* name, ResTable_config* out) {
   return true;
 }
 
-bool ConfigDescription::Parse(StringPiece str, ConfigDescription* out) {
+bool ConfigDescription::Parse(const StringPiece& str, ConfigDescription* out) {
   std::vector<std::string> parts = util::SplitAndLowercase(str, '-');
 
   ConfigDescription config;
@@ -691,13 +673,6 @@ bool ConfigDescription::Parse(StringPiece str, ConfigDescription* out) {
   } else {
     locale.WriteTo(&config);
     part_iter += parts_consumed;
-    if (part_iter == parts_end) {
-      goto success;
-    }
-  }
-
-  if (parseGrammaticalInflection(*part_iter, &config)) {
-    ++part_iter;
     if (part_iter == parts_end) {
       goto success;
     }
@@ -857,13 +832,11 @@ success:
 void ConfigDescription::ApplyVersionForCompatibility(
     ConfigDescription* config) {
   uint16_t min_sdk = 0;
-  if (config->grammaticalInflection != 0) {
-    min_sdk = SDK_U;
-  } else if ((config->uiMode & ResTable_config::MASK_UI_MODE_TYPE)
+  if ((config->uiMode & ResTable_config::MASK_UI_MODE_TYPE)
                 == ResTable_config::UI_MODE_TYPE_VR_HEADSET ||
             config->colorMode & ResTable_config::MASK_WIDE_COLOR_GAMUT ||
             config->colorMode & ResTable_config::MASK_HDR) {
-    min_sdk = SDK_O;
+        min_sdk = SDK_O;
   } else if (config->screenLayout2 & ResTable_config::MASK_SCREENROUND) {
     min_sdk = SDK_MARSHMALLOW;
   } else if (config->density == ResTable_config::DENSITY_ANY) {
@@ -905,7 +878,7 @@ std::string ConfigDescription::GetBcp47LanguageTag(bool canonicalize) const {
 
 std::string ConfigDescription::to_string() const {
   const String8 str = toString();
-  return std::string(str.c_str(), str.size());
+  return std::string(str.string(), str.size());
 }
 
 bool ConfigDescription::Dominates(const ConfigDescription& o) const {
@@ -914,16 +887,13 @@ bool ConfigDescription::Dominates(const ConfigDescription& o) const {
   }
 
   // Locale de-duping is not-trivial, disable for now (b/62409213).
-  // We must also disable de-duping for all configuration qualifiers with precedence higher than
-  // locale (b/171892595)
-  if (diff(o) & (CONFIG_LOCALE | CONFIG_MCC | CONFIG_MNC)) {
+  if (diff(o) & CONFIG_LOCALE) {
     return false;
   }
 
   if (*this == DefaultConfig()) {
     return true;
   }
-
   return MatchWithDensity(o) && !o.MatchWithDensity(*this) &&
          !isMoreSpecificThan(o) && !o.HasHigherPrecedenceThan(*this);
 }
@@ -940,7 +910,6 @@ bool ConfigDescription::HasHigherPrecedenceThan(
   if (country[0] || o.country[0]) return (!o.country[0]);
   // Script and variant require either a language or country, both of which
   // have higher precedence.
-  if (grammaticalInflection || o.grammaticalInflection) return !o.grammaticalInflection;
   if ((screenLayout | o.screenLayout) & MASK_LAYOUTDIR) {
     return !(o.screenLayout & MASK_LAYOUTDIR);
   }
@@ -999,7 +968,6 @@ bool ConfigDescription::ConflictsWith(const ConfigDescription& o) const {
   // The values here can be found in ResTable_config#match. Density and range
   // values can't lead to conflicts, and are ignored.
   return !pred(mcc, o.mcc) || !pred(mnc, o.mnc) || !pred(locale, o.locale) ||
-         !pred(grammaticalInflection, o.grammaticalInflection) ||
          !pred(screenLayout & MASK_LAYOUTDIR,
                o.screenLayout & MASK_LAYOUTDIR) ||
          !pred(screenLayout & MASK_SCREENLONG,

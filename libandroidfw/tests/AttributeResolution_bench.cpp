@@ -36,14 +36,15 @@ constexpr const static char* kFrameworkPath = "/system/framework/framework-res.a
 constexpr const static uint32_t Theme_Material_Light = 0x01030237u;
 
 static void BM_ApplyStyle(benchmark::State& state) {
-  auto styles_apk = ApkAssets::Load(GetTestDataPath() + "/styles/styles.apk");
+  std::unique_ptr<const ApkAssets> styles_apk =
+      ApkAssets::Load(GetTestDataPath() + "/styles/styles.apk");
   if (styles_apk == nullptr) {
     state.SkipWithError("failed to load assets");
     return;
   }
 
   AssetManager2 assetmanager;
-  assetmanager.SetApkAssets({styles_apk});
+  assetmanager.SetApkAssets({styles_apk.get()});
 
   std::unique_ptr<Asset> asset =
       assetmanager.OpenNonAsset("res/layout/layout.xml", Asset::ACCESS_BUFFER);
@@ -79,20 +80,21 @@ static void BM_ApplyStyle(benchmark::State& state) {
 BENCHMARK(BM_ApplyStyle);
 
 static void BM_ApplyStyleFramework(benchmark::State& state) {
-  auto framework_apk = ApkAssets::Load(kFrameworkPath);
+  std::unique_ptr<const ApkAssets> framework_apk = ApkAssets::Load(kFrameworkPath);
   if (framework_apk == nullptr) {
     state.SkipWithError("failed to load framework assets");
     return;
   }
 
-  auto basic_apk = ApkAssets::Load(GetTestDataPath() + "/basic/basic.apk");
+  std::unique_ptr<const ApkAssets> basic_apk =
+      ApkAssets::Load(GetTestDataPath() + "/basic/basic.apk");
   if (basic_apk == nullptr) {
     state.SkipWithError("failed to load assets");
     return;
   }
 
   AssetManager2 assetmanager;
-  assetmanager.SetApkAssets({framework_apk, basic_apk});
+  assetmanager.SetApkAssets({framework_apk.get(), basic_apk.get()});
 
   ResTable_config device_config;
   memset(&device_config, 0, sizeof(device_config));
@@ -106,20 +108,27 @@ static void BM_ApplyStyleFramework(benchmark::State& state) {
   device_config.screenHeightDp = 1024;
   device_config.sdkVersion = 27;
 
-  auto value = assetmanager.GetResource(basic::R::layout::layoutt);
-  if (!value.has_value()) {
+  Res_value value;
+  ResTable_config config;
+  uint32_t flags = 0u;
+  ApkAssetsCookie cookie =
+      assetmanager.GetResource(basic::R::layout::layoutt, false /*may_be_bag*/,
+                               0u /*density_override*/, &value, &config, &flags);
+  if (cookie == kInvalidCookie) {
     state.SkipWithError("failed to find R.layout.layout");
     return;
   }
 
-  auto layout_path = assetmanager.GetStringPoolForCookie(value->cookie)->string8At(value->data);
-  if (!layout_path.has_value()) {
+  size_t len = 0u;
+  const char* layout_path =
+      assetmanager.GetStringPoolForCookie(cookie)->string8At(value.data, &len);
+  if (layout_path == nullptr || len == 0u) {
     state.SkipWithError("failed to lookup layout path");
     return;
   }
 
-  std::unique_ptr<Asset> asset =
-      assetmanager.OpenNonAsset(std::string(*layout_path), value->cookie, Asset::ACCESS_BUFFER);
+  std::unique_ptr<Asset> asset = assetmanager.OpenNonAsset(
+      StringPiece(layout_path, len).to_string(), cookie, Asset::ACCESS_BUFFER);
   if (asset == nullptr) {
     state.SkipWithError("failed to load layout");
     return;

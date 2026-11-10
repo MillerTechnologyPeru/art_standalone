@@ -1,10 +1,8 @@
 {
   "presubmit": [
     {
-      "name": "CtsResourcesLoaderTests"
-    },
-    {
-      "name": "libandroidfw_tests"
+      "name": "libandroidfw_tests",
+      "host": true
     }
   ]
 }

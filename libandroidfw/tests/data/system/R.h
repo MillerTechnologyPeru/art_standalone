@@ -40,13 +40,6 @@ struct R {
       number = 0x01030000,  // sv
     };
   };
-
-  struct string {
-    enum : uint32_t {
-      no = 0x01040009,
-      yes = 0x01040013,
-    };
-  };
 };
 
 }  // namespace android
