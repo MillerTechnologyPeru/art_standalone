@@ -849,12 +849,12 @@ static JNINativeMethod gMethods[] = {
 
 #define FAIL_WITH_STRERROR(s) \
     ALOGE("Couldn't " s " '%s': %s", path_.c_str(), strerror(errno)); \
-    return FALSE;
+    return false;
 
 #define MAYBE_FAIL_WITH_ICU_ERROR(s) \
     if (status != U_ZERO_ERROR) {\
         ALOGE("Couldn't initialize ICU (" s "): %s (%s)", u_errorName(status), path_.c_str()); \
-        return FALSE; \
+        return false; \
     }
 
 // Contain the memory map for ICU data files.
@@ -947,6 +947,7 @@ struct ICURegistration {
   // Init ICU, configuring it and loading the data files.
   ICURegistration(JNIEnv* env) {
     UErrorCode status = U_ZERO_ERROR;
+#if defined(__ANDROID__)
     // Tell ICU it can *only* use our memory-mapped data.
     udata_setFileAccess(UDATA_NO_FILES, &status);
     if (status != U_ZERO_ERROR) {
@@ -986,6 +987,10 @@ struct ICURegistration {
     if (icu_datamap_from_runtime_module_ == nullptr) {
         abort();
     }
+#else
+    // Off Android, ICU is the distribution's, with its data built into
+    // libicudata; there are no Android data files to map.
+#endif
 
     // Failures to find the ICU data tend to be somewhat obscure because ICU loads its data on first
     // use, which can be anywhere. Force initialization up front so we can report a nice clear error
