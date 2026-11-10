@@ -15,12 +15,18 @@ android = libskia["target"]["android"]
 # piex), HEIF (libheif) and PDF's font subsetting (sfntly).
 left_out = {"src/codec/SkRawCodec.cpp", "src/codec/SkHeifCodec.cpp"}
 
-common = [s for s in libskia["srcs"] + android["srcs"] if s not in left_out]
+sources = [s for s in libskia["srcs"] + android["srcs"] if s not in left_out]
+# This build system compiles one C++ extension per module: Skia's .cc
+# sources (skcms) get a module of their own, libskia_cc.
+common = [s for s in sources if not s.endswith(".cc")]
+cc = [s for s in sources if s.endswith(".cc")]
 arm64 = libskia["arch"]["arm64"]["srcs"]
 x86_64 = libskia["arch"]["x86_64"]["srcs"]
 includes = [d for d in libskia["local_include_dirs"] + android["local_include_dirs"]
             if d != "include/config/android"] + ["include/config/mead", "include/third_party/vulkan"]
-cflags = [f for f in libskia["cflags"] if f not in ("-DSKIA_DLL",)]
+# Skia's symbols stay visible: it is inside libhwui, and the graphics JNI in
+# libandroid_runtime calls it there.
+cflags = [f for f in libskia["cflags"] if f not in ("-DSKIA_DLL", "-fvisibility=hidden")]
 
 
 def listing(name, items):
@@ -36,6 +42,7 @@ print(f"""# Generated from Android.bp by frameworks/mead/tools/gen_skia_mk.py; e
 LOCAL_PATH := $(call my-dir)
 
 {listing("skia_srcs", common)}
+{listing("skia_cc_srcs", cc)}
 {listing("skia_arm64_srcs", arm64)}
 {listing("skia_x86_64_srcs", x86_64)}
 {listing("skia_includes", ["$(LOCAL_PATH)/" + d.rstrip("/") for d in includes])}
@@ -52,12 +59,27 @@ LOCAL_CFLAGS += -mssse3
 endif
 LOCAL_C_INCLUDES := $(skia_includes) \\
     external/libjpeg-turbo \\
+    frameworks/native/libs/nativewindow/include \\
+    frameworks/native/libs/nativebase/include \\
+    frameworks/native/libs/arect/include \\
+    system/core/libsystem/include \\
     frameworks/native/include \\
     frameworks/mead/compat/include \\
     /usr/include/freetype2
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(skia_includes)
 LOCAL_CFLAGS += $(skia_cflags) -fPIC -DSK_BUILD_FOR_ANDROID -include mead/android10_compat.h
 LOCAL_CPPFLAGS := -fexceptions
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_MULTILIB := both
+include $(BUILD_HOST_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libskia_cc
+LOCAL_MODULE_TAGS := optional
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := $(skia_cc_srcs)
+LOCAL_C_INCLUDES := $(skia_includes) frameworks/mead/compat/include
+LOCAL_CFLAGS += $(skia_cflags) -fPIC -DSK_BUILD_FOR_ANDROID -include mead/android10_compat.h
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_STATIC_LIBRARY)
