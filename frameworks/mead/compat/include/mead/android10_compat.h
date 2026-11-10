@@ -12,6 +12,18 @@
 #include <stdint.h>
 #include <string.h>
 
+/* What bionic's headers bring in with others, and glibc's don't:
+ * CLOCK_MONOTONIC, dprintf, malloc and free, open's flags. */
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#ifdef __cplusplus
+/* What libc++'s headers bring in with others, and libstdc++'s don't. */
+#include <algorithm>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -47,6 +59,22 @@ static inline int android_errorWriteWithInfoLog(int tag, const char* subTag, int
     (void)dataLen;
     return 0;
 }
+
+/* The NDK headers Android 10's code includes (<android/hardware_buffer.h>,
+ * <android/sync.h>) declare their functions for the API level being built
+ * for, with bionic's availability annotation: Android 10's, API 29. */
+#ifndef __ANDROID_API__
+#define __ANDROID_API__ 29
+#endif
+#ifndef __INTRODUCED_IN
+#define __INTRODUCED_IN(api)
+#endif
+
+/* libui is built as in Android's vendor configuration, without BufferHub;
+ * its headers declare BufferHub's members only without this. */
+#ifndef LIBUI_IN_VNDK
+#define LIBUI_IN_VNDK 1
+#endif
 
 /* libcutils' ashmem: there is no ashmem off Android, so no descriptor is one. */
 static inline int ashmem_valid(int fd) {
