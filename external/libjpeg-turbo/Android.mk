@@ -68,7 +68,9 @@ LOCAL_SRC_FILES += jsimd_none.c
 endif
 LOCAL_C_INCLUDES := $(LOCAL_PATH)
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
-LOCAL_CFLAGS := -O3 -fstrict-aliasing -fPIC -fvisibility=hidden -Wno-sign-compare -Wno-unused-parameter
+# Its symbols stay visible: it is inside libhwui, and the graphics JNI's
+# YuvImage in libandroid_runtime calls it there.
+LOCAL_CFLAGS := -O3 -fstrict-aliasing -fPIC -Wno-sign-compare -Wno-unused-parameter
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_STATIC_LIBRARY)
