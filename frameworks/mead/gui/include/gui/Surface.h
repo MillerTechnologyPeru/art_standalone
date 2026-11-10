@@ -36,6 +36,19 @@ public:
     // The size of the buffers handed out from now on.
     void resize(uint32_t width, uint32_t height);
 
+    // What EGL draws to for this surface (see mead_surface_set_native_window).
+    void setNativeWindow(uintptr_t window);
+
+    static bool isValid(const sp<Surface>& surface) { return surface != nullptr; }
+
+    // Software drawing: a buffer to draw into, whose whole area is to be
+    // drawn (a frame's earlier contents aren't kept), then queued.
+    status_t lock(ANativeWindow_Buffer* outBuffer, ARect* inOutDirtyBounds);
+    status_t unlockAndPost();
+
+    // Frames are shown as the bridge scales them.
+    int setScalingMode(int mode);
+
     // Allocates the buffers ahead of the first frame.
     void allocateBuffers();
 
@@ -108,6 +121,8 @@ private:
     nsecs_t mLastQueueDuration = 0;
     uint64_t mFrameNumber = 0;
     sp<GraphicBuffer> mLastQueued;
+    uintptr_t mNativeWindow = 0;
+    sp<GraphicBuffer> mLocked;
 };
 
 } // namespace android
