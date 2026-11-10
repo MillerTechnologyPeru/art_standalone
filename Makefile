@@ -28,10 +28,11 @@ ____INSTALL_BINDIR_DX = $(____PREFIX_DX)/$(____BINDIR)
 # framework.jar and the rest), from AOSP's build of android-security-10.0.0_r75:
 # Mead's Scripts/aosp/build-android-10-java.sh leaves them in out/mead-java,
 # with the ICU and time zone data the core library reads beside them, in
-# etc/icu and etc/tz.
+# etc/icu and etc/tz, and the CA certificates in etc/security/cacerts.
 ____ANDROID_JAVA_DIR ?= $(____TOPDIR)/out/android-java
 # Where that data goes: what ANDROID_RUNTIME_ROOT and ANDROID_TZDATA_ROOT
-# name when the runtime starts.
+# name when the runtime starts, and ANDROID_ROOT, for Conscrypt's CA
+# certificates in etc/security/cacerts.
 ____INSTALL_RUNTIME_ROOT = $(____PREFIX)/share/art
 ____INSTALL_LIBDIR_DX = $(____PREFIX_DX)/$(____LIBDIR)
 
@@ -69,7 +70,7 @@ endif
 
 default: ____art_all
 
-____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libandroidfw art-standalone.pc
+____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw art-standalone.pc
 
 art-standalone.pc: art-standalone.pc.in
 	sed -e 's|@prefix@|$(____PREFIX)|g' \
@@ -85,7 +86,8 @@ install:
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libnativehelper.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libopenjdk.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libopenjdkjvm.so \
-	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libandroidio.so
+	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libandroidio.so \
+	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libjavacrypto.so
 #
 # these are mostly internal libs which there's no point in versioning because they don't have any kind of stable ABI - so we just shove them in art/ namespace
 # even the libunwind is actually a fork of libunwind 1.1 with added stuff that will likely never be upstreamed, especially since google stopped using libunwind
@@ -122,6 +124,7 @@ endif
 	install -m644 -Dt $(____INSTALL_LIBDIR)/java/dex/art/ $(wildcard $(____ANDROID_JAVA_DIR)/*.jar)
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/icu/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/icu/*)
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/tz/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/tz/*)
+	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/security/cacerts/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/security/cacerts/*)
 #
 # packaging note: this should arguably be it's own package (together with out/host/linux-x86/bin/dx)
 	install -Dt $(____INSTALL_LIBDIR_DX)/java/ $(____TOPDIR)/out/host/linux-x86/framework/dx.jar
