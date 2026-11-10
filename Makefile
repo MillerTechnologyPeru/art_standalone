@@ -51,9 +51,15 @@ WITHOUT_CLANG := true
 # no idea what this is, but it's not present in our somewhat lean source tree and it's clearly not needed
 WITHOUT_LIBCOMPILER_RT := true
 
+include system/core/libdl_bio/system_dl_bio.mk
+# the fallback libdl_bio, when bionic_translation is not installed
+ifeq ($(ART_SYSTEM_DL_BIO),)
+____dl_bio_fallback := libdl_bio
+endif
+
 default: ____art_all
 
-____art_all: dalvikvm art dex2oat libjavacore libcore libopenjdk libopenjdkjvm core-libart-hostdex core-oj-hostdex apachehttp-hostdex apache-xml-hostdex hamcrest-hostdex core-junit-hostdex junit-runner-hostdex bouncycastle-hostdex wolfssljni-hostdex okhttp-hostdex libandroidfw art-standalone.pc
+____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libjavacore libcore libopenjdk libopenjdkjvm core-libart-hostdex core-oj-hostdex apachehttp-hostdex apache-xml-hostdex hamcrest-hostdex core-junit-hostdex junit-runner-hostdex bouncycastle-hostdex wolfssljni-hostdex okhttp-hostdex libandroidfw art-standalone.pc
 
 art-standalone.pc: art-standalone.pc.in
 	sed -e 's|@prefix@|$(____PREFIX)|g' \
@@ -90,6 +96,9 @@ install:
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libunwind.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libutils.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libziparchive.so
+ifeq ($(ART_SYSTEM_DL_BIO),)
+	install -Dt $(____INSTALL_LIBDIR)/art/ $(____TOPDIR)/out/host/linux-x86/lib64/libdl_bio.so
+endif
 #
 # note: `test -f` should install the 32bit binary when it's not a symlink to the 64 bit one
 	test -f $(____dalvikvm_bin_32) && install -Dt $(____INSTALL_BINDIR) $(____dalvikvm_bin_32) || true
