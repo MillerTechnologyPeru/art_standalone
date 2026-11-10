@@ -353,6 +353,9 @@ int Surface::perform(int operation, va_list args) {
         case NATIVE_WINDOW_GET_NEXT_FRAME_ID:
             *va_arg(args, uint64_t*) = mFrameNumber + 1;
             return NO_ERROR;
+        case MEAD_SURFACE_GET_NATIVE_WINDOW:
+            *va_arg(args, uintptr_t*) = mNativeWindow;
+            return NO_ERROR;
         case NATIVE_WINDOW_GET_WIDE_COLOR_SUPPORT:
         case NATIVE_WINDOW_GET_HDR_SUPPORT:
             *va_arg(args, bool*) = false;
@@ -360,6 +363,60 @@ int Surface::perform(int operation, va_list args) {
         default:
             return INVALID_OPERATION;
     }
+}
+
+void Surface::setNativeWindow(uintptr_t window) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    mNativeWindow = window;
+}
+
+status_t Surface::lock(ANativeWindow_Buffer* outBuffer, ARect* inOutDirtyBounds) {
+    if (mLocked != nullptr) {
+        ALOGE("lock: the surface is already locked");
+        return INVALID_OPERATION;
+    }
+    ANativeWindowBuffer* buffer = nullptr;
+    int fenceFd = -1;
+    status_t error = dequeueBuffer(&buffer, &fenceFd);
+    if (error != NO_ERROR) return error;
+    waitAndClose(fenceFd);
+    sp<GraphicBuffer> graphicBuffer = GraphicBuffer::from(buffer);
+    void* bits = nullptr;
+    error = graphicBuffer->lock(GraphicBuffer::USAGE_SW_READ_OFTEN |
+                                        GraphicBuffer::USAGE_SW_WRITE_OFTEN,
+                                &bits);
+    if (error != NO_ERROR) {
+        cancelBuffer(buffer, -1);
+        return error;
+    }
+    mLocked = graphicBuffer;
+    outBuffer->width = static_cast<int32_t>(graphicBuffer->getWidth());
+    outBuffer->height = static_cast<int32_t>(graphicBuffer->getHeight());
+    outBuffer->stride = static_cast<int32_t>(graphicBuffer->getStride());
+    outBuffer->format = graphicBuffer->getPixelFormat();
+    outBuffer->bits = bits;
+    if (inOutDirtyBounds != nullptr) {
+        inOutDirtyBounds->left = 0;
+        inOutDirtyBounds->top = 0;
+        inOutDirtyBounds->right = outBuffer->width;
+        inOutDirtyBounds->bottom = outBuffer->height;
+    }
+    return NO_ERROR;
+}
+
+status_t Surface::unlockAndPost() {
+    if (mLocked == nullptr) {
+        ALOGE("unlockAndPost: the surface isn't locked");
+        return INVALID_OPERATION;
+    }
+    sp<GraphicBuffer> locked = mLocked;
+    mLocked = nullptr;
+    locked->unlock();
+    return queueBuffer(locked->getNativeBuffer(), -1);
+}
+
+int Surface::setScalingMode(int) {
+    return NO_ERROR;
 }
 
 uint64_t Surface::getNextFrameNumber() const {
@@ -402,6 +459,10 @@ ANativeWindow* mead_surface_create(uint32_t width, uint32_t height, int32_t form
     Surface* surface = new Surface(width, height, format, callbacks ? *callbacks : none);
     surface->incStrong(nullptr);
     return surface;
+}
+
+void mead_surface_set_native_window(ANativeWindow* window, uintptr_t nativeWindow) {
+    static_cast<Surface*>(window)->setNativeWindow(nativeWindow);
 }
 
 void mead_surface_resize(ANativeWindow* window, uint32_t width, uint32_t height) {
