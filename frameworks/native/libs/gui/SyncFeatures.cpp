@@ -27,7 +27,12 @@
 
 #include <private/gui/SyncFeatures.h>
 
+#ifdef __ANDROID__
 extern "C" EGLAPI const char* eglQueryStringImplementationANDROID(EGLDisplay dpy, EGLint name);
+#else
+// Off Android, EGL is the implementation itself.
+#define eglQueryStringImplementationANDROID eglQueryString
+#endif
 
 namespace android {
 
