@@ -798,14 +798,16 @@ std::string Runtime::GetCompilerExecutable() const {
   }
 
   std::string dex2oat_name = (kIsDebugBuild ? "dex2oatd" : "dex2oat");
-  const char* android_root = getenv("ANDROID_ROOT");
-  if(!android_root) // search in $PATH by default
-    return dex2oat_name;
-  else { // if ANDROID_ROOT is set, use the binary from there
-    std::string compiler_executable(GetAndroidRoot());
-    compiler_executable += dex2oat_name;
-    return compiler_executable;
+  // If ANDROID_ROOT is set and has the binary, use that one; otherwise
+  // search $PATH. ANDROID_ROOT may name a root that holds only data (the
+  // framework, CA certificates and the like), without a bin directory.
+  if (getenv("ANDROID_ROOT") != nullptr) {
+    std::string compiler_executable = GetAndroidRoot() + "/bin/" + dex2oat_name;
+    if (OS::FileExists(compiler_executable.c_str())) {
+      return compiler_executable;
+    }
   }
+  return dex2oat_name;
 }
 
 void Runtime::RunRootClinits(Thread* self) {
