@@ -39,6 +39,10 @@
 // Android-specific addition that is used to show when frames began in systrace
 EGLAPI void EGLAPIENTRY eglBeginFrame(EGLDisplay dpy, EGLSurface surface);
 
+#ifdef HWUI_MEAD_WINDOWS
+#include <mead/gui.h>
+#endif
+
 namespace android {
 namespace uirenderer {
 namespace renderthread {
@@ -103,7 +107,23 @@ void EglManager::initialize() {
 
     ATRACE_NAME("Creating EGLContext");
 
+#ifdef HWUI_MEAD_WINDOWS
+    // The windowing connection Mead's windows are on, where they can be
+    // drawn to; EGL's default display may be another.
+    uint32_t nativeKind = 0;
+    void* nativeDisplay = nullptr;
+    mead_gui_get_native_display(&nativeKind, &nativeDisplay);
+    if (nativeKind == MEAD_GUI_NATIVE_WAYLAND || nativeKind == MEAD_GUI_NATIVE_X11) {
+        mEglDisplay = eglGetPlatformDisplay(
+                nativeKind == MEAD_GUI_NATIVE_WAYLAND ? EGL_PLATFORM_WAYLAND_KHR
+                                                      : EGL_PLATFORM_X11_KHR,
+                nativeDisplay, nullptr);
+    } else {
+        mEglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    }
+#else
     mEglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+#endif
     LOG_ALWAYS_FATAL_IF(mEglDisplay == EGL_NO_DISPLAY, "Failed to get EGL_DEFAULT_DISPLAY! err=%s",
                         eglErrorString());
 
@@ -342,8 +362,22 @@ Result<EGLSurface, EGLint> EglManager::createSurface(EGLNativeWindowType window,
         }
     }
 
+#ifdef HWUI_MEAD_WINDOWS
+    // EGL here draws to the windowing system's window behind Mead's surface,
+    // not to an ANativeWindow.
+    uintptr_t nativeWindow = 0;
+    if (window == nullptr ||
+        window->perform(window, MEAD_SURFACE_GET_NATIVE_WINDOW, &nativeWindow) != 0 ||
+        nativeWindow == 0) {
+        return Error<EGLint>{EGL_BAD_NATIVE_WINDOW};
+    }
+    EGLSurface surface = eglCreateWindowSurface(
+            mEglDisplay, wideColorGamut ? mEglConfigWideGamut : mEglConfig,
+            (EGLNativeWindowType)nativeWindow, attribs);
+#else
     EGLSurface surface = eglCreateWindowSurface(
             mEglDisplay, wideColorGamut ? mEglConfigWideGamut : mEglConfig, window, attribs);
+#endif
     if (surface == EGL_NO_SURFACE) {
         return Error<EGLint>{eglGetError()};
     }
