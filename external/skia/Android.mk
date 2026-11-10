@@ -414,7 +414,6 @@ skia_srcs := \
     src/xml/SkXMLWriter.cpp \
     third_party/etc1/etc1.cpp \
     third_party/gif/SkGifImageReader.cpp \
-    third_party/skcms/skcms.cc \
     src/gpu/GrAHardwareBufferImageGenerator.cpp \
     src/gpu/GrAHardwareBufferUtils.cpp \
     src/gpu/GrAuditTrail.cpp \
@@ -731,6 +730,9 @@ skia_srcs := \
     src/xps/SkXPSDocument.cpp \
     third_party/vulkanmemoryallocator/GrVulkanMemoryAllocator.cpp
 
+skia_cc_srcs := \
+    third_party/skcms/skcms.cc
+
 skia_arm64_srcs := \
     src/opts/SkOpts_crc32.cpp
 
@@ -795,8 +797,7 @@ skia_cflags := \
     -Wno-missing-field-initializers \
     -Wno-thread-safety-analysis \
     -Wno-unused-parameter \
-    -Wno-unused-variable \
-    -fvisibility=hidden
+    -Wno-unused-variable
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libskia
@@ -810,12 +811,27 @@ LOCAL_CFLAGS += -mssse3
 endif
 LOCAL_C_INCLUDES := $(skia_includes) \
     external/libjpeg-turbo \
+    frameworks/native/libs/nativewindow/include \
+    frameworks/native/libs/nativebase/include \
+    frameworks/native/libs/arect/include \
+    system/core/libsystem/include \
     frameworks/native/include \
     frameworks/mead/compat/include \
     /usr/include/freetype2
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(skia_includes)
 LOCAL_CFLAGS += $(skia_cflags) -fPIC -DSK_BUILD_FOR_ANDROID -include mead/android10_compat.h
 LOCAL_CPPFLAGS := -fexceptions
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+LOCAL_MULTILIB := both
+include $(BUILD_HOST_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libskia_cc
+LOCAL_MODULE_TAGS := optional
+LOCAL_CPP_EXTENSION := .cc
+LOCAL_SRC_FILES := $(skia_cc_srcs)
+LOCAL_C_INCLUDES := $(skia_includes) frameworks/mead/compat/include
+LOCAL_CFLAGS += $(skia_cflags) -fPIC -DSK_BUILD_FOR_ANDROID -include mead/android10_compat.h
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_STATIC_LIBRARY)
