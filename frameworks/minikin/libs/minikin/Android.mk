@@ -39,7 +39,9 @@ LOCAL_C_INCLUDES := \
     frameworks/mead/compat/include \
     /usr/include/harfbuzz
 LOCAL_EXPORT_C_INCLUDE_DIRS := frameworks/minikin/include /usr/include/harfbuzz
-LOCAL_CFLAGS := -Wall -fPIC -fvisibility=hidden -include mead/android10_compat.h
+# Its symbols stay visible: it is inside libhwui, and the graphics JNI in
+# libandroid_runtime calls it there.
+LOCAL_CFLAGS := -Wall -fPIC -include mead/android10_compat.h
 LOCAL_SHARED_LIBRARIES := libbase liblog libutils
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
