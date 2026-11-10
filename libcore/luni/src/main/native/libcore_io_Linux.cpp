@@ -774,6 +774,9 @@ class Passwd {
 public:
     explicit Passwd(JNIEnv* env) : mEnv(env), mResult(NULL) {
         mBufferSize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        if (mBufferSize <= 0) {
+            mBufferSize = 16384;  // glibc has no limit to tell.
+        }
         mBuffer.reset(new char[mBufferSize]);
     }
 
