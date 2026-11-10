@@ -13,6 +13,11 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <vector>
+
 namespace {
 
 template <typename Function>
@@ -52,9 +57,41 @@ FORWARD(EGLBoolean, eglSetDamageRegionKHR, EGL_FALSE,
         (EGLDisplay dpy, EGLSurface surface, EGLint* rects, EGLint n_rects),
         (dpy, surface, rects, n_rects))
 
+// MEAD_FRAME_DUMP=path: writes the frame about to be shown to path as a
+// binary PPM, every 60 swaps from the first, as Mead's EGL provider does for
+// games. A debugging aid for hosts with no way to look at the screen.
+static void dumpFrame(EGLDisplay dpy, EGLSurface surface) {
+    static unsigned swaps;
+    const char* path = getenv("MEAD_FRAME_DUMP");
+    if (path == nullptr || swaps++ % 60 != 0) return;
+    EGLint width = 0, height = 0;
+    if (!eglQuerySurface(dpy, surface, EGL_WIDTH, &width) ||
+        !eglQuerySurface(dpy, surface, EGL_HEIGHT, &height) || width <= 0 || height <= 0) {
+        return;
+    }
+    std::vector<unsigned char> pixels(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
+    GLint bound = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(bound));
+    FILE* file = fopen(path, "wb");
+    if (file == nullptr) return;
+    fprintf(file, "P6\n%d %d\n255\n", width, height);
+    for (EGLint row = height - 1; row >= 0; row--) {
+        for (EGLint column = 0; column < width; column++) {
+            fwrite(&pixels[(static_cast<size_t>(row) * static_cast<size_t>(width) +
+                            static_cast<size_t>(column)) * 4],
+                   1, 3, file);
+        }
+    }
+    fclose(file);
+}
+
 // Without the extension, the whole surface is swapped.
 extern "C" EGLBoolean eglSwapBuffersWithDamageKHR(EGLDisplay dpy, EGLSurface surface,
                                                   const EGLint* rects, EGLint n_rects) {
+    dumpFrame(dpy, surface);
     static const auto function =
             lookup<EGLBoolean (*)(EGLDisplay, EGLSurface, const EGLint*, EGLint)>(
                     "eglSwapBuffersWithDamageKHR");
@@ -71,3 +108,9 @@ extern "C" void glEGLImageTargetTexture2DOES(GLenum target, GLeglImageOES image)
 // Android's libEGL's private frame marker, which hwui declares itself (with
 // C++ linkage); there is no frame to mark here.
 void eglBeginFrame(EGLDisplay, EGLSurface) {}
+
+// Android's libEGL's blob cache file, for compiled shaders: Mesa keeps its
+// own shader cache.
+namespace android {
+void egl_set_cache_filename(const char*) {}
+} // namespace android
