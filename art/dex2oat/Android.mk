@@ -32,7 +32,7 @@ define cpp-define-generator-asm-support_GENERATED_SOURCES
 include art/build/Android.common_build.mk
 GENERATED_SRC_DIR = $(call local-generated-sources-dir)
 
-$$(GENERATED_SRC_DIR)/asm_defines.S: PRIVATE_CUSTOM_TOOL = $(HOST_CXX) -S $$< -o $$@ $(HOST_GLOBAL_CPPFLAGS) $(HOST_GLOBAL_CFLAGS) $(ART_HOST_CFLAGS) $(addprefix -I , $(ART_C_INCLUDES) libbase/include libnativehelper/include/nativehelper)
+$$(GENERATED_SRC_DIR)/asm_defines.S: PRIVATE_CUSTOM_TOOL = $(HOST_CXX) -S $$< -o $$@ $(HOST_GLOBAL_CPPFLAGS) $(HOST_GLOBAL_CFLAGS) $(ART_HOST_CFLAGS) $(addprefix -I , $(ART_C_INCLUDES) libbase/include libnativehelper/include_jni)
 $$(GENERATED_SRC_DIR)/asm_defines.S : art/tools/cpp-define-generator/asm_defines.cc
 	$$(transform-generated-source)
 
