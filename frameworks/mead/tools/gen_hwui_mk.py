@@ -73,8 +73,9 @@ LOCAL_C_INCLUDES := \\
     frameworks/mead/compat/include
 LOCAL_EXPORT_C_INCLUDE_DIRS := \\
 {"".join(f"    {d} \\{chr(10)}" for d in exported[:-1])}    {exported[-1]}
-# Without TextureView's SurfaceTexture (see DeferredLayerUpdater.h).
-LOCAL_CFLAGS := $(hwui_cflags) -fPIC -DSK_BUILD_FOR_ANDROID -DHWUI_NO_SURFACE_TEXTURE \\
+# Without TextureView's SurfaceTexture (see DeferredLayerUpdater.h), and with
+# EGL drawing to Mead's windows (see EglManager.cpp).
+LOCAL_CFLAGS := $(hwui_cflags) -fPIC -DSK_BUILD_FOR_ANDROID -DHWUI_NO_SURFACE_TEXTURE -DHWUI_MEAD_WINDOWS \\
     -DENABLE_STRING8_OBSOLETE_METHODS -DENABLE_STRING16_OBSOLETE_METHODS \\
     -include mead/android10_compat.h
 LOCAL_CPPFLAGS := -std=gnu++17
