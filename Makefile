@@ -75,7 +75,7 @@ endif
 
 default: ____art_all
 
-____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libui libnativewindow libgui libhwui libandroid_runtime art-standalone.pc
+____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libui libnativewindow libgui libhwui libinput libandroid_runtime art-standalone.pc
 
 art-standalone.pc: art-standalone.pc.in
 	sed -e 's|@prefix@|$(____PREFIX)|g' \
@@ -102,6 +102,7 @@ install:
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libmead_android10_compat.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libgui.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libhwui.so \
+	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libinput.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libnativewindow.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libui.so \
 	                                       $(____TOPDIR)/out/host/linux-x86/lib64/libart.so \
