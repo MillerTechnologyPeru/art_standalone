@@ -23,6 +23,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+#include <algorithm>
 #include <memory>
 
 namespace android {
@@ -31,7 +32,7 @@ namespace android {
 // FenceTime
 // ============================================================================
 
-const auto FenceTime::NO_FENCE = std::make_shared<FenceTime>(Fence::NO_FENCE);
+const std::shared_ptr<FenceTime> FenceTime::NO_FENCE = std::make_shared<FenceTime>(Fence::NO_FENCE);
 
 FenceTime::FenceTime(const sp<Fence>& fence)
   : mState(((fence.get() != nullptr) && fence->isValid()) ?
