@@ -48,9 +48,9 @@ package java.lang.reflect;
  *
  * @since 1.5
  */
-// Android-changed: Removed AnnotatedElement super-class due to excluded support
-// for runtime type annotations
-public interface TypeVariable<D extends GenericDeclaration> extends Type {
+// Android-changed: Removed support for type annotations at runtime.
+// Removed AnnotatedElement super-class.
+public interface TypeVariable<D extends GenericDeclaration> extends Type/*, AnnotatedElement*/ {
     /**
      * Returns an array of {@code Type} objects representing the
      * upper bound(s) of this type variable.  Note that if no upper bound is
@@ -89,6 +89,8 @@ public interface TypeVariable<D extends GenericDeclaration> extends Type {
      */
     String getName();
 
+    // Android-removed: getAnnotatedBounds(), no support for runtime type annotations on Android.
+    /*
     /**
      * Returns an array of AnnotatedType objects that represent the use of
      * types to denote the upper bounds of the type parameter represented by
@@ -99,7 +101,7 @@ public interface TypeVariable<D extends GenericDeclaration> extends Type {
      *
      * @return an array of objects representing the upper bounds of the type variable
      * @since 1.8
-     */
-    // Android-changed: Excluded support for runtime type annotations
-    // AnnotatedType[] getAnnotatedBounds();
+     *
+     AnnotatedType[] getAnnotatedBounds();
+    */
 }

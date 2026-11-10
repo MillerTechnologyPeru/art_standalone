@@ -17,12 +17,15 @@
 package libcore.io;
 
 import android.system.ErrnoException;
+import android.system.Int32Ref;
 import android.system.StructGroupReq;
-import android.system.StructGroupSourceReq;
 import android.system.StructLinger;
 import android.system.StructPollfd;
 import android.system.StructTimeval;
-import android.util.MutableInt;
+
+import libcore.util.ArrayUtils;
+
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -42,14 +45,16 @@ import java.net.SocketOptions;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static android.system.OsConstants.*;
 
 /**
  * Implements java.io/java.net/java.nio semantics in terms of the underlying POSIX system calls.
+ *
+ * @hide
  */
+@libcore.api.CorePlatformApi
 public final class IoBridge {
 
     private IoBridge() {
@@ -57,7 +62,7 @@ public final class IoBridge {
 
     public static int available(FileDescriptor fd) throws IOException {
         try {
-            MutableInt available = new MutableInt(0);
+            Int32Ref available = new Int32Ref(0);
             Libcore.os.ioctlInt(fd, FIONREAD, available);
             if (available.value < 0) {
                 // If the fd refers to a regular file, the result is the difference between
@@ -135,7 +140,7 @@ public final class IoBridge {
             if (errnoException.errno == EADDRNOTAVAIL) {
                 throw new NoRouteToHostException("Address not available");
             }
-            throw new ConnectException(connectDetail(fd, inetAddress, port, timeoutMs,
+            throw new ConnectException(createMessageForException(fd, inetAddress, port, timeoutMs,
                     errnoException), errnoException);
         } catch (SocketException ex) {
             throw ex; // We don't want to doubly wrap these.
@@ -182,20 +187,25 @@ public final class IoBridge {
             remainingTimeoutMs =
                     (int) TimeUnit.NANOSECONDS.toMillis(finishTimeNanos - System.nanoTime());
             if (remainingTimeoutMs <= 0) {
-                throw new SocketTimeoutException(connectDetail(fd, inetAddress, port, timeoutMs,
-                        null));
+                throw new SocketTimeoutException(
+                        createMessageForException(fd, inetAddress, port, timeoutMs, null));
             }
         } while (!IoBridge.isConnected(fd, inetAddress, port, timeoutMs, remainingTimeoutMs));
         IoUtils.setBlocking(fd, true); // 4. set the socket back to blocking.
     }
 
-    private static String connectDetail(FileDescriptor fd, InetAddress inetAddress, int port,
-            int timeoutMs, Exception cause) {
+    /**
+     * Constructs the message for an exception that the caller is about to throw.
+     */
+    private static String createMessageForException(FileDescriptor fd, InetAddress inetAddress,
+            int port, int timeoutMs, Exception causeOrNull) {
         // Figure out source address from fd.
         InetSocketAddress localAddress = null;
         try {
             localAddress = getLocalInetSocketAddress(fd);
-        } catch (SocketException ignored) { }
+        } catch (SocketException ignored) {
+            // The caller is about to throw an exception, so this one would only distract.
+        }
 
         StringBuilder sb = new StringBuilder("failed to connect")
               .append(" to ")
@@ -215,37 +225,40 @@ public final class IoBridge {
               .append(timeoutMs)
               .append("ms");
         }
-        if (cause != null) {
+        if (causeOrNull != null) {
             sb.append(": ")
-              .append(cause.getMessage());
+              .append(causeOrNull.getMessage());
         }
         return sb.toString();
     }
 
     /**
-     * Closes the supplied file descriptor and sends a signal to any threads are currently blocking.
-     * In order for the signal to be sent the blocked threads must have registered with
-     * the AsynchronousCloseMonitor before they entered the blocking operation.
+     * Closes the Unix file descriptor associated with the supplied file descriptor, resets the
+     * internal int to -1, and sends a signal to any threads are currently blocking. In order for
+     * the signal to be sent the blocked threads must have registered with the
+     * AsynchronousCloseMonitor before they entered the blocking operation. {@code fd} will be
+     * invalid after this call.
      *
      * <p>This method is a no-op if passed a {@code null} or already-closed file descriptor.
      */
+    @libcore.api.CorePlatformApi
     public static void closeAndSignalBlockedThreads(FileDescriptor fd) throws IOException {
         if (fd == null || !fd.valid()) {
             return;
         }
-        int intFd = fd.getInt$();
-        fd.setInt$(-1);
-        FileDescriptor oldFd = new FileDescriptor();
-        oldFd.setInt$(intFd);
+        // fd is invalid after we call release.
+        FileDescriptor oldFd = fd.release$();
         AsynchronousCloseMonitor.signalBlockedThreads(oldFd);
         try {
             Libcore.os.close(oldFd);
         } catch (ErrnoException errnoException) {
-            // TODO: are there any cases in which we should throw?
+            throw errnoException.rethrowAsIOException();
         }
     }
 
-    public static boolean isConnected(FileDescriptor fd, InetAddress inetAddress, int port, int timeoutMs, int remainingTimeoutMs) throws IOException {
+    @UnsupportedAppUsage
+    public static boolean isConnected(FileDescriptor fd, InetAddress inetAddress, int port,
+            int timeoutMs, int remainingTimeoutMs) throws IOException {
         ErrnoException cause;
         try {
             StructPollfd[] pollFds = new StructPollfd[] { new StructPollfd() };
@@ -266,9 +279,11 @@ public final class IoBridge {
             }
             cause = errnoException;
         }
-        String detail = connectDetail(fd, inetAddress, port, timeoutMs, cause);
+        String detail = createMessageForException(fd, inetAddress, port, timeoutMs, cause);
         if (cause.errno == ETIMEDOUT) {
-            throw new SocketTimeoutException(detail, cause);
+            SocketTimeoutException e = new SocketTimeoutException(detail);
+            e.initCause(cause);
+            throw e;
         }
         throw new ConnectException(detail, cause);
     }
@@ -276,10 +291,6 @@ public final class IoBridge {
     // Socket options used by java.net but not exposed in SocketOptions.
     public static final int JAVA_MCAST_JOIN_GROUP = 19;
     public static final int JAVA_MCAST_LEAVE_GROUP = 20;
-    public static final int JAVA_MCAST_JOIN_SOURCE_GROUP = 21;
-    public static final int JAVA_MCAST_LEAVE_SOURCE_GROUP = 22;
-    public static final int JAVA_MCAST_BLOCK_SOURCE = 23;
-    public static final int JAVA_MCAST_UNBLOCK_SOURCE = 24;
     public static final int JAVA_IP_MULTICAST_TTL = 17;
     public static final int JAVA_IP_TTL = 25;
 
@@ -451,36 +462,8 @@ public final class IoBridge {
             Libcore.os.setsockoptGroupReq(fd, level, op, groupReq);
             return;
         }
-        case IoBridge.JAVA_MCAST_JOIN_SOURCE_GROUP:
-        case IoBridge.JAVA_MCAST_LEAVE_SOURCE_GROUP:
-        case IoBridge.JAVA_MCAST_BLOCK_SOURCE:
-        case IoBridge.JAVA_MCAST_UNBLOCK_SOURCE:
-        {
-            StructGroupSourceReq groupSourceReq = (StructGroupSourceReq) value;
-            int level = (groupSourceReq.gsr_group instanceof Inet4Address)
-                ? IPPROTO_IP : IPPROTO_IPV6;
-            int op = getGroupSourceReqOp(option);
-            Libcore.os.setsockoptGroupSourceReq(fd, level, op, groupSourceReq);
-            return;
-        }
         default:
             throw new SocketException("Unknown socket option: " + option);
-        }
-    }
-
-    private static int getGroupSourceReqOp(int javaValue) {
-        switch (javaValue) {
-            case IoBridge.JAVA_MCAST_JOIN_SOURCE_GROUP:
-                return MCAST_JOIN_SOURCE_GROUP;
-            case IoBridge.JAVA_MCAST_LEAVE_SOURCE_GROUP:
-                return MCAST_LEAVE_SOURCE_GROUP;
-            case IoBridge.JAVA_MCAST_BLOCK_SOURCE:
-                return MCAST_BLOCK_SOURCE;
-            case IoBridge.JAVA_MCAST_UNBLOCK_SOURCE:
-                return MCAST_UNBLOCK_SOURCE;
-            default:
-                throw new AssertionError(
-                        "Unknown java value for setsocketopt op lookup: " + javaValue);
         }
     }
 
@@ -490,6 +473,7 @@ public final class IoBridge {
      * directories: POSIX says read-only is okay, but java.io doesn't even allow that. We also
      * have an Android-specific hack to alter the default permissions.
      */
+    @libcore.api.CorePlatformApi
     public static FileDescriptor open(String path, int flags) throws FileNotFoundException {
         FileDescriptor fd = null;
         try {
@@ -505,7 +489,7 @@ public final class IoBridge {
         } catch (ErrnoException errnoException) {
             try {
                 if (fd != null) {
-                    IoUtils.close(fd);
+                    closeAndSignalBlockedThreads(fd);
                 }
             } catch (IOException ignored) {
             }
@@ -519,8 +503,9 @@ public final class IoBridge {
      * java.io thinks that a read at EOF is an error and should return -1, contrary to traditional
      * Unix practice where you'd read until you got 0 bytes (and any future read would return -1).
      */
+    @libcore.api.CorePlatformApi
     public static int read(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount) throws IOException {
-        Arrays.checkOffsetAndCount(bytes.length, byteOffset, byteCount);
+        ArrayUtils.throwsIfOutOfBounds(bytes.length, byteOffset, byteCount);
         if (byteCount == 0) {
             return 0;
         }
@@ -543,8 +528,9 @@ public final class IoBridge {
      * java.io always writes every byte it's asked to, or fails with an error. (That is, unlike
      * Unix it never just writes as many bytes as happens to be convenient.)
      */
+    @libcore.api.CorePlatformApi
     public static void write(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount) throws IOException {
-        Arrays.checkOffsetAndCount(bytes.length, byteOffset, byteCount);
+        ArrayUtils.throwsIfOutOfBounds(bytes.length, byteOffset, byteCount);
         if (byteCount == 0) {
             return;
         }
@@ -559,6 +545,7 @@ public final class IoBridge {
         }
     }
 
+    @libcore.api.CorePlatformApi
     public static int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, InetAddress inetAddress, int port) throws IOException {
         boolean isDatagram = (inetAddress != null);
         if (!isDatagram && byteCount <= 0) {
@@ -603,6 +590,7 @@ public final class IoBridge {
         throw errnoException.rethrowAsIOException();
     }
 
+    @libcore.api.CorePlatformApi
     public static int recvfrom(boolean isRead, FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, DatagramPacket packet, boolean isConnected) throws IOException {
         int result;
         try {
@@ -654,13 +642,16 @@ public final class IoBridge {
             if (isConnected && errnoException.errno == ECONNREFUSED) {
                 throw new PortUnreachableException("ICMP Port Unreachable", errnoException);
             } else if (errnoException.errno == EAGAIN) {
-                throw new SocketTimeoutException(errnoException);
+                SocketTimeoutException e = new SocketTimeoutException();
+                e.initCause(errnoException);
+                throw e;
             } else {
                 throw errnoException.rethrowAsSocketException();
             }
         }
     }
 
+    @libcore.api.CorePlatformApi
     public static FileDescriptor socket(int domain, int type, int protocol) throws SocketException {
         FileDescriptor fd;
         try {
@@ -695,7 +686,12 @@ public final class IoBridge {
         }
     }
 
-    public static InetSocketAddress getLocalInetSocketAddress(FileDescriptor fd) throws SocketException {
+    /**
+     * @throws SocketException if fd is not currently bound to an InetSocketAddress
+     */
+    @libcore.api.CorePlatformApi
+    public static InetSocketAddress getLocalInetSocketAddress(FileDescriptor fd)
+            throws SocketException {
         try {
             SocketAddress socketAddress = Libcore.os.getsockname(fd);
             // When a Socket is pending closure because socket.close() was called but other threads

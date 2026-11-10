@@ -61,19 +61,30 @@ import static sun.net.ExtendedOptionsImpl.*;
 
 class PlainSocketImpl extends AbstractPlainSocketImpl
 {
+    // Android-removed: Android doesn't need to call native initProto.
+    /*
+    static {
+        initProto();
+    }
+    */
+
     /**
      * Constructs an empty instance.
      */
     PlainSocketImpl() {
-        this(new FileDescriptor());
+        // Android-changed: Let PlainSocketImpl construct its own FileDescriptor.
+        this.fd = new FileDescriptor();
     }
 
     /**
      * Constructs an instance with the given file descriptor.
      */
+    // Android-removed: Let PlainSocketImpl construct its own FileDescriptor.
+    /*
     PlainSocketImpl(FileDescriptor fd) {
         this.fd = fd;
     }
+    */
 
     protected <T> void setOption(SocketOption<T> name, T value) throws IOException {
         if (!name.equals(ExtendedSocketOptions.SO_FLOW_SLA)) {
@@ -101,6 +112,7 @@ class PlainSocketImpl extends AbstractPlainSocketImpl
         return (T)flow;
     }
 
+    // BEGIN Android-changed: Rewrote on top of Libcore.io.
     protected void socketSetOption(int opt, Object val) throws SocketException {
         try {
             socketSetOption0(opt, val);
@@ -114,6 +126,7 @@ class PlainSocketImpl extends AbstractPlainSocketImpl
         // The fd object must not change after calling bind, because we rely on this undocumented
         // behaviour. See libcore.java.net.SocketTest#testFileDescriptorStaysSame.
         fd.setInt$(IoBridge.socket(AF_INET6, isStream ? SOCK_STREAM : SOCK_DGRAM, 0).getInt$());
+        IoUtils.setFdOwner(fd, this);
 
         if (serverSocket != null) {
             IoUtils.setBlocking(fd, false);
@@ -188,11 +201,14 @@ class PlainSocketImpl extends AbstractPlainSocketImpl
             FileDescriptor newfd = Libcore.os.accept(fd, peerAddress);
 
             s.fd.setInt$(newfd.getInt$());
+            IoUtils.setFdOwner(s.fd, s);
             s.address = peerAddress.getAddress();
             s.port = peerAddress.getPort();
         } catch (ErrnoException errnoException) {
             if (errnoException.errno == EAGAIN) {
-                throw new SocketTimeoutException(errnoException);
+                SocketTimeoutException e = new SocketTimeoutException();
+                e.initCause(errnoException);
+                throw e;
             } else if (errnoException.errno == EINVAL || errnoException.errno == EBADF) {
                 throw new SocketException("Socket closed");
             }
@@ -293,5 +309,6 @@ class PlainSocketImpl extends AbstractPlainSocketImpl
             throw errnoException.rethrowAsSocketException();
         }
     }
+    // END Android-changed: Rewrote on top of Libcore.io.
 
 }

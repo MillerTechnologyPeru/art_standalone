@@ -28,10 +28,6 @@
 #include <string.h>
 #include <time.h>
 
-// for dladdr
-#define _GNU_SOURCE
-#include <dlfcn.h>
-
 #include <log/log.h>
 
 #include "io_util.h"
@@ -45,8 +41,6 @@
 #if defined(__ANDROID__)
 void android_get_LD_LIBRARY_PATH(char*, size_t);
 #endif
-
-__attribute__((visibility("default"))) void art_sigsegv_fault();
 
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(className ## _ ## functionName) }
@@ -178,7 +172,7 @@ System_mapLibraryName(JNIEnv *env, jclass ign, jstring libname)
 
 static jobjectArray System_specialProperties(JNIEnv* env, jclass ignored) {
     jclass stringClass = (*env)->FindClass(env, "java/lang/String");
-    jobjectArray result = (*env)->NewObjectArray(env, 5, stringClass, NULL);
+    jobjectArray result = (*env)->NewObjectArray(env, 4, stringClass, NULL);
 
     char path[PATH_MAX];
     char* process_path = getcwd(path, sizeof(path));
@@ -231,24 +225,6 @@ static jobjectArray System_specialProperties(JNIEnv* env, jclass ignored) {
     (*env)->SetObjectArrayElement(env, result, 3, java_path_str);
     if ((*env)->ExceptionCheck(env)) {
         return NULL;
-    }
-
-    Dl_info libart_so_dl_info;
-    // art_sigsegv_fault chosen arbitrarily, what matters is that it's a symbol exported by by libart.so
-    dladdr(art_sigsegv_fault, &libart_so_dl_info);
-    // make sure we didn't get NULL
-    if(libart_so_dl_info.dli_fname) {
-        // it's simpler if we can modify the string, so strdup it
-        char *libart_so_full_path = strdup(libart_so_dl_info.dli_fname);
-        *strrchr(libart_so_full_path, '/') = '\0'; // now we should have something like /usr/lib64/art
-        char* bootclasspath = malloc(strlen("java.boot.library.path=") + strlen(libart_so_full_path) + strlen("/../java/dex/art/natives/") + 1);
-        strcpy(bootclasspath, "java.boot.library.path=");
-        strcat(bootclasspath, libart_so_full_path);
-        strcat(bootclasspath, "/../java/dex/art/natives/");
-        jstring bootclasspath_str = (*env)->NewStringUTF(env, bootclasspath);
-        free((void*)bootclasspath);
-        free(libart_so_full_path);
-        (*env)->SetObjectArrayElement(env, result, 4, bootclasspath_str);
     }
 
     return result;

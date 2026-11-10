@@ -23,7 +23,13 @@
  * questions.
  */
 
+// Android-changed: Fuchsia: Point to correct location of header. http://b/119426171
+// #include <sys/poll.h>
+#if defined(__Fuchsia__)
+#include <poll.h>
+#else
 #include <sys/poll.h>
+#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
@@ -255,7 +261,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set IPV6_V6ONLY");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }
@@ -269,7 +274,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set SO_REUSEADDR");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }
@@ -299,7 +303,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set IPV6_MULTICAST_HOPS");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }
@@ -377,7 +380,13 @@ Java_sun_nio_ch_Net_localPort(JNIEnv *env, jclass clazz, jobject fdo)
             struct sockaddr_in *sin;
             sin = (struct sockaddr_in *) &sa;
             bzero(sin, sizeof(*sin));
+            // BEGIN Android-changed: Fuchsia: sin_len is not a sockaddr_in member on Fuchsia.
+            // http://b/119497331
+            // sin->sin_len = sizeof(struct sockaddr_in);
+#if !defined(__Fuchsia__)
             sin->sin_len  = sizeof(struct sockaddr_in);
+#endif
+            // END Android-changed: Fuchsia: sin_len is not a sockaddr_in member on Fuchsia.
             sin->sin_family = AF_INET;
             sin->sin_port = htonl(0);
             sin->sin_addr.s_addr = INADDR_ANY;
@@ -412,7 +421,13 @@ Java_sun_nio_ch_Net_localInetAddress(JNIEnv *env, jclass clazz, jobject fdo)
             struct sockaddr_in *sin;
             sin = (struct sockaddr_in *) &sa;
             bzero(sin, sizeof(*sin));
+            // BEGIN Android-changed: Fuchsia: sin_len is not a sockaddr_in member on Fuchsia.
+            // http://b/119497331
+            // sin->sin_len = sizeof(struct sockaddr_in);
+#if !defined(__Fuchsia__)
             sin->sin_len  = sizeof(struct sockaddr_in);
+#endif
+            // END Android-changed: Fuchsia: sin_len is not a sockaddr_in member on Fuchsia.
             sin->sin_family = AF_INET;
             sin->sin_port = htonl(0);
             sin->sin_addr.s_addr = INADDR_ANY;
@@ -561,17 +576,9 @@ Java_sun_nio_ch_Net_joinOrDrop4(JNIEnv *env, jobject this, jboolean join, jobjec
         }
 #endif
 
-// Begin Android changed.
-#if defined(__GLIBC__)
         mreq_source.imr_multiaddr.s_addr = htonl(group);
         mreq_source.imr_sourceaddr.s_addr = htonl(source);
         mreq_source.imr_interface.s_addr = htonl(interf);
-#else
-        mreq_source.imr_multiaddr = htonl(group);
-        mreq_source.imr_sourceaddr = htonl(source);
-        mreq_source.imr_interface = htonl(interf);
-#endif
-// End Android changed.
         opt = (join) ? IP_ADD_SOURCE_MEMBERSHIP : IP_DROP_SOURCE_MEMBERSHIP;
         optval = (void*)&mreq_source;
         optlen = sizeof(mreq_source);
@@ -605,16 +612,9 @@ Java_sun_nio_ch_Net_blockOrUnblock4(JNIEnv *env, jobject this, jboolean block, j
         return IOS_UNAVAILABLE;
     }
 #endif
-// Begin Android changed.
-#if defined(__GLIBC__)
         mreq_source.imr_multiaddr.s_addr = htonl(group);
         mreq_source.imr_sourceaddr.s_addr = htonl(source);
         mreq_source.imr_interface.s_addr = htonl(interf);
-#else
-        mreq_source.imr_multiaddr = htonl(group);
-        mreq_source.imr_sourceaddr = htonl(source);
-        mreq_source.imr_interface = htonl(interf);
-#endif
 
     n = setsockopt(fdval(env,fdo), IPPROTO_IP, opt,
                    (void*)&mreq_source, sizeof(mreq_source));

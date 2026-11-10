@@ -32,17 +32,13 @@
 #include "nio_util.h"
 #include <nativehelper/JNIHelp.h>
 
-#ifndef __SIGRTMIN
-#define __SIGRTMIN 32
-#endif
-
 #ifdef __linux__
   #include <pthread.h>
   #include <sys/signal.h>
   // Android-changed: Bionic (and AsynchronousCloseMonitor) expects libcore to use
   // __SIGRTMIN + 2, not __SIGRTMAX - 2
   /* Also defined in net/linux_close.c */
-  #define INTERRUPT_SIGNAL (SIGRTMAX - 2)
+  #define INTERRUPT_SIGNAL (__SIGRTMIN + 2)
 #elif __solaris__
   #include <thread.h>
   #include <signal.h>
@@ -52,6 +48,13 @@
   #include <signal.h>
   /* Also defined in net/bsd_close.c */
   #define INTERRUPT_SIGNAL SIGIO
+// BEGIN Android-added: Fuchsia: Support for Fuchsia platform.
+#elif __Fuchsia__
+  #include <pthread.h>
+  #include <signal.h>
+  /* Also defined in net/bsd_close.c */
+  #define INTERRUPT_SIGNAL SIGIO
+// END Android-added: Fuchsia: Support for Fuchsia platform.
 #else
   #error "missing platform-specific definition here"
 #endif

@@ -46,9 +46,5 @@ public final class CertPathProvider extends Provider {
         put("CertPathValidator.PKIX", "sun.security.provider.certpath.PKIXCertPathValidator");
         put("CertPathValidator.PKIX ImplementedIn", "Software");
         put("CertPathValidator.PKIX ValidationAlgorithm", "RFC3280");
-
-        // (ATL added) JKS
-        put("KeyStore.JKS", "sun.security.provider.JavaKeyStore$JKS");
-        put("KeyStore.JKS ImplementedIn", "Software");
     }
 }

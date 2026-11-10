@@ -26,15 +26,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.system.ErrnoException;
+import android.system.Int32Ref;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
-import android.util.MutableInt;
 
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
 import libcore.junit.junit3.TestCaseWithRules;
 import libcore.junit.util.ResourceLeakageDetector;
+import libcore.testing.io.TestIoUtils;
+
 import org.junit.Rule;
 import org.junit.rules.TestRule;
 
@@ -63,7 +65,7 @@ public final class FileInputStreamTest extends TestCaseWithRules {
                     }
                     fos.write(buffer);
                 } finally {
-                    IoUtils.closeQuietly(fos);
+                    TestIoUtils.closeQuietly(fos);
                     IoUtils.close(mOutFd);
                 }
             } catch (IOException e) {
@@ -222,7 +224,7 @@ public final class FileInputStreamTest extends TestCaseWithRules {
         }
 
         try (FileInputStream input = new FileInputStream(file)) {
-            android.system.Os.ioctlInt(input.getFD(), OsConstants.FIONREAD, new MutableInt(0));
+            android.system.Os.ioctlInt(input.getFD(), OsConstants.FIONREAD, new Int32Ref(0));
             fail();
         } catch (ErrnoException expected) {
             assertEquals("FIONREAD should have returned ENOTTY for the file. If it doesn't return"
@@ -233,7 +235,7 @@ public final class FileInputStreamTest extends TestCaseWithRules {
 
     // http://b/25695227
     public void testFdLeakWhenOpeningDirectory() throws Exception {
-        File phile = IoUtils.createTemporaryDirectory("test_bug_25695227");
+        File phile = TestIoUtils.createTemporaryDirectory("test_bug_25695227");
 
         try {
             new FileInputStream(phile);

@@ -33,12 +33,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectInputStream.GetField;
 import java.io.ObjectOutputStream;
 import java.io.ObjectOutputStream.PutField;
+import libcore.net.InetAddressUtils;
 import sun.net.util.IPAddressUtil;
 import sun.net.spi.nameservice.*;
-import android.system.GaiException;
-import android.system.StructAddrinfo;
 import libcore.io.Libcore;
-import static android.system.OsConstants.*;
 
 /**
  * This class represents an Internet Protocol (IP) address.
@@ -181,6 +179,24 @@ import static android.system.OsConstants.*;
  */
 public
 class InetAddress implements java.io.Serializable {
+    // BEGIN Android-removed: Android uses linux-based OsConstants.
+    /*
+     * Specify the address family: Internet Protocol, Version 4
+     * @since 1.4
+     *
+    static final int IPv4 = 1;
+
+    /**
+     * Specify the address family: Internet Protocol, Version 6
+     * @since 1.4
+     *
+    static final int IPv6 = 2;
+    */
+    // END Android-removed: Android uses linux-based OsConstants.
+
+    // Android-removed: Android doesn't support the preference.
+    // /* Specify address family preference */
+    //static transient boolean preferIPv6Address = false;
 
     static class InetAddressHolder {
         /**
@@ -197,7 +213,7 @@ class InetAddress implements java.io.Serializable {
          *
          * Note: May define a new public method in the future if necessary.
          */
-        private String originalHostName;
+        String originalHostName;
 
         InetAddressHolder() {}
 
@@ -235,6 +251,7 @@ class InetAddress implements java.io.Serializable {
             return address;
         }
 
+        // Android-changed: Documentation: use Linux-based OsConstants.
         /**
          * Specifies the address family type, for instance, AF_INET for IPv4
          * addresses, and AF_INET6 for IPv6 addresses.
@@ -256,6 +273,9 @@ class InetAddress implements java.io.Serializable {
     static final InetAddressImpl impl = new Inet6AddressImpl();
 
     /* Used to store the name service provider */
+    // Android-changed: Android has only one name service.
+    // Android doesn't allow user to provide custom name services.
+    // private static List<NameService> nameServices = null;
     private static final NameService nameService = new NameService() {
         public InetAddress[] lookupAllHostAddr(String host, int netId)
                 throws UnknownHostException {
@@ -272,6 +292,26 @@ class InetAddress implements java.io.Serializable {
 
     /** use serialVersionUID from JDK 1.0.2 for interoperability */
     private static final long serialVersionUID = 3286316764910316507L;
+
+
+    // BEGIN Android-removed: Android doesn't need to load native library.
+    /*
+     * Load net library into runtime, and perform initializations.
+     *
+    static {
+        preferIPv6Address = java.security.AccessController.doPrivileged(
+            new GetBooleanAction("java.net.preferIPv6Addresses")).booleanValue();
+        AccessController.doPrivileged(
+            new java.security.PrivilegedAction<Void>() {
+                public Void run() {
+                    System.loadLibrary("net");
+                    return null;
+                }
+            });
+        init();
+    }
+    */
+    // END Android-removed: Android doesn't need to load native library.
 
     /**
      * Constructor for the Socket.accept() method.
@@ -412,14 +452,18 @@ class InetAddress implements java.io.Serializable {
     }
 
 
+    // Android-changed: Document that impl tries ICMP ECHO REQUESTs first.
+    // The sole implementation, Inet6AddressImpl.isReachable(), tries ICMP ECHO REQUESTs before
+    // TCP ECHO REQUESTs on Android. On Android, these are both possible without root access.
     /**
      * Test whether that address is reachable. Best effort is made by the
      * implementation to try to reach the host, but firewalls and server
      * configuration may block requests resulting in a unreachable status
      * while some specific ports may be accessible.
-     * A typical implementation will use ICMP ECHO REQUESTs if the
-     * privilege can be obtained, otherwise it will try to establish
-     * a TCP connection on port 7 (Echo) of the destination host.
+     * <p>
+     * Android implementation attempts ICMP ECHO REQUESTs first, on failure it
+     * will fall back to TCP ECHO REQUESTs. Success on either protocol will
+     * return true.
      * <p>
      * The timeout value, in milliseconds, indicates the maximum amount of time
      * the try should take. If the operation times out before getting an
@@ -433,9 +477,12 @@ class InetAddress implements java.io.Serializable {
      * @since 1.5
      */
     public boolean isReachable(int timeout) throws IOException {
-        return isReachable(null, 0, timeout);
+        return isReachable(null, 0 , timeout);
     }
 
+    // Android-changed: Document that impl tries ICMP ECHO REQUESTs first.
+    // The sole implementation, Inet6AddressImpl.isReachable(), tries ICMP ECHO REQUESTs before
+    // TCP ECHO REQUESTs on Android. On Android, these are both possible without root access.
     /**
      * Test whether that address is reachable. Best effort is made by the
      * implementation to try to reach the host, but firewalls and server
@@ -478,12 +525,14 @@ class InetAddress implements java.io.Serializable {
         return impl.isReachable(this, timeout, netif, ttl);
     }
 
+    // BEGIN Android-added: isReachableByICMP(timeout).
     /**
      * @hide For testing only
      */
     public boolean isReachableByICMP(int timeout) throws IOException {
         return ((Inet6AddressImpl) impl).icmpEcho(this, timeout, null, 0);
     }
+    // END Android-added: isReachableByICMP(timeout).
 
     /**
      * Gets the host name for this IP address.
@@ -511,11 +560,45 @@ class InetAddress implements java.io.Serializable {
      * @see SecurityManager#checkConnect
      */
     public String getHostName() {
+        // Android-changed: Remove SecurityManager check.
         if (holder().getHostName() == null) {
             holder().hostName = InetAddress.getHostFromNameService(this);
         }
         return holder().getHostName();
     }
+
+    // BEGIN Android-removed: Android doesn't support SecurityManager.
+    /*
+     * Returns the hostname for this address.
+     * If the host is equal to null, then this address refers to any
+     * of the local machine's available network addresses.
+     * this is package private so SocketPermission can make calls into
+     * here without a security check.
+     *
+     * <p>If there is a security manager, this method first
+     * calls its {@code checkConnect} method
+     * with the hostname and {@code -1}
+     * as its arguments to see if the calling code is allowed to know
+     * the hostname for this IP address, i.e., to connect to the host.
+     * If the operation is not allowed, it will return
+     * the textual representation of the IP address.
+     *
+     * @return  the host name for this IP address, or if the operation
+     *    is not allowed by the security check, the textual
+     *    representation of the IP address.
+     *
+     * @param check make security check if true
+     *
+     * @see SecurityManager#checkConnect
+     *
+    String getHostName(boolean check) {
+        if (holder().getHostName() == null) {
+            holder().hostName = InetAddress.getHostFromNameService(this, check);
+        }
+        return holder().getHostName();
+    }
+    */
+    // END Android-removed: Android doesn't support SecurityManager.
 
     /**
      * Gets the fully qualified domain name for this IP address.
@@ -539,12 +622,15 @@ class InetAddress implements java.io.Serializable {
      * @since 1.4
      */
     public String getCanonicalHostName() {
+        // Android-changed: Remove SecurityManager check.
         if (canonicalHostName == null) {
             canonicalHostName = InetAddress.getHostFromNameService(this);
         }
         return canonicalHostName;
     }
 
+    // Android-changed: Remove SecurityManager check.
+    // * @param check make security check if true
     /**
      * Returns the hostname for this address.
      *
@@ -566,6 +652,7 @@ class InetAddress implements java.io.Serializable {
         String host = null;
         try {
             // first lookup the hostname
+            // Android-changed: Android has only one name service.
             host = nameService.getHostByAddr(addr.getAddress());
 
                 /* now get all the IP addresses for this hostname,
@@ -659,6 +746,280 @@ class InetAddress implements java.io.Serializable {
             + "/" + getHostAddress();
     }
 
+    // BEGIN Android-removed: Resolves a hostname using Libcore.os.
+    /*
+     * Cached addresses - our own litle nis, not!
+     *
+    private static Cache addressCache = new Cache(Cache.Type.Positive);
+
+    private static Cache negativeCache = new Cache(Cache.Type.Negative);
+
+    private static boolean addressCacheInit = false;
+
+    static InetAddress[]    unknown_array; // put THIS in cache
+
+    static InetAddressImpl  impl;
+
+    private static final HashMap<String, Void> lookupTable = new HashMap<>();
+
+    /**
+     * Represents a cache entry
+     *
+    static final class CacheEntry {
+
+        CacheEntry(InetAddress[] addresses, long expiration) {
+            this.addresses = addresses;
+            this.expiration = expiration;
+        }
+
+        InetAddress[] addresses;
+        long expiration;
+    }
+
+    /**
+     * A cache that manages entries based on a policy specified
+     * at creation time.
+     *
+    static final class Cache {
+        private LinkedHashMap<String, CacheEntry> cache;
+        private Type type;
+
+        enum Type {Positive, Negative};
+
+        /**
+         * Create cache
+         *
+        public Cache(Type type) {
+            this.type = type;
+            cache = new LinkedHashMap<String, CacheEntry>();
+        }
+
+        private int getPolicy() {
+            if (type == Type.Positive) {
+                return InetAddressCachePolicy.get();
+            } else {
+                return InetAddressCachePolicy.getNegative();
+            }
+        }
+
+        /**
+         * Add an entry to the cache. If there's already an
+         * entry then for this host then the entry will be
+         * replaced.
+         *
+        public Cache put(String host, InetAddress[] addresses) {
+            int policy = getPolicy();
+            if (policy == InetAddressCachePolicy.NEVER) {
+                return this;
+            }
+
+            // purge any expired entries
+
+            if (policy != InetAddressCachePolicy.FOREVER) {
+
+                // As we iterate in insertion order we can
+                // terminate when a non-expired entry is found.
+                LinkedList<String> expired = new LinkedList<>();
+                long now = System.currentTimeMillis();
+                for (String key : cache.keySet()) {
+                    CacheEntry entry = cache.get(key);
+
+                    if (entry.expiration >= 0 && entry.expiration < now) {
+                        expired.add(key);
+                    } else {
+                        break;
+                    }
+                }
+
+                for (String key : expired) {
+                    cache.remove(key);
+                }
+            }
+
+            // create new entry and add it to the cache
+            // -- as a HashMap replaces existing entries we
+            //    don't need to explicitly check if there is
+            //    already an entry for this host.
+            long expiration;
+            if (policy == InetAddressCachePolicy.FOREVER) {
+                expiration = -1;
+            } else {
+                expiration = System.currentTimeMillis() + (policy * 1000);
+            }
+            CacheEntry entry = new CacheEntry(addresses, expiration);
+            cache.put(host, entry);
+            return this;
+        }
+
+        /**
+         * Query the cache for the specific host. If found then
+         * return its CacheEntry, or null if not found.
+         *
+        public CacheEntry get(String host) {
+            int policy = getPolicy();
+            if (policy == InetAddressCachePolicy.NEVER) {
+                return null;
+            }
+            CacheEntry entry = cache.get(host);
+
+            // check if entry has expired
+            if (entry != null && policy != InetAddressCachePolicy.FOREVER) {
+                if (entry.expiration >= 0 &&
+                        entry.expiration < System.currentTimeMillis()) {
+                    cache.remove(host);
+                    entry = null;
+                }
+            }
+
+            return entry;
+        }
+    }
+
+    /*
+     * Initialize cache and insert anyLocalAddress into the
+     * unknown array with no expiry.
+     *
+    private static void cacheInitIfNeeded() {
+        assert Thread.holdsLock(addressCache);
+        if (addressCacheInit) {
+            return;
+        }
+        unknown_array = new InetAddress[1];
+        unknown_array[0] = impl.anyLocalAddress();
+
+        addressCache.put(impl.anyLocalAddress().getHostName(),
+                         unknown_array);
+
+        addressCacheInit = true;
+    }
+
+    /*
+     * Cache the given hostname and addresses.
+     *
+    private static void cacheAddresses(String hostname,
+                                       InetAddress[] addresses,
+                                       boolean success) {
+        hostname = hostname.toLowerCase();
+        synchronized (addressCache) {
+            cacheInitIfNeeded();
+            if (success) {
+                addressCache.put(hostname, addresses);
+            } else {
+                negativeCache.put(hostname, addresses);
+            }
+        }
+    }
+
+    /*
+     * Lookup hostname in cache (positive & negative cache). If
+     * found return addresses, null if not found.
+     *
+    private static InetAddress[] getCachedAddresses(String hostname) {
+        hostname = hostname.toLowerCase();
+
+        // search both positive & negative caches
+
+        synchronized (addressCache) {
+            cacheInitIfNeeded();
+
+            CacheEntry entry = addressCache.get(hostname);
+            if (entry == null) {
+                entry = negativeCache.get(hostname);
+            }
+
+            if (entry != null) {
+                return entry.addresses;
+            }
+        }
+
+        // not found
+        return null;
+    }
+
+    private static NameService createNSProvider(String provider) {
+        if (provider == null)
+            return null;
+
+        NameService nameService = null;
+        if (provider.equals("default")) {
+            // initialize the default name service
+            nameService = new NameService() {
+                public InetAddress[] lookupAllHostAddr(String host)
+                    throws UnknownHostException {
+                    return impl.lookupAllHostAddr(host);
+                }
+                public String getHostByAddr(byte[] addr)
+                    throws UnknownHostException {
+                    return impl.getHostByAddr(addr);
+                }
+            };
+        } else {
+            final String providerName = provider;
+            try {
+                nameService = java.security.AccessController.doPrivileged(
+                    new java.security.PrivilegedExceptionAction<NameService>() {
+                        public NameService run() {
+                            Iterator<NameServiceDescriptor> itr =
+                                ServiceLoader.load(NameServiceDescriptor.class)
+                                    .iterator();
+                            while (itr.hasNext()) {
+                                NameServiceDescriptor nsd = itr.next();
+                                if (providerName.
+                                    equalsIgnoreCase(nsd.getType()+","
+                                        +nsd.getProviderName())) {
+                                    try {
+                                        return nsd.createNameService();
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                        System.err.println(
+                                            "Cannot create name service:"
+                                             +providerName+": " + e);
+                                    }
+                                }
+                            }
+
+                            return null;
+                        }
+                    }
+                );
+            } catch (java.security.PrivilegedActionException e) {
+            }
+        }
+
+        return nameService;
+    }
+
+    static {
+        // create the impl
+        impl = InetAddressImplFactory.create();
+
+        // get name service if provided and requested
+        String provider = null;;
+        String propPrefix = "sun.net.spi.nameservice.provider.";
+        int n = 1;
+        nameServices = new ArrayList<NameService>();
+        provider = AccessController.doPrivileged(
+                new GetPropertyAction(propPrefix + n));
+        while (provider != null) {
+            NameService ns = createNSProvider(provider);
+            if (ns != null)
+                nameServices.add(ns);
+
+            n++;
+            provider = AccessController.doPrivileged(
+                    new GetPropertyAction(propPrefix + n));
+        }
+
+        // if not designate any name services provider,
+        // create a default one
+        if (nameServices.size() == 0) {
+            NameService ns = createNSProvider("default");
+            nameServices.add(ns);
+        }
+    }
+    */
+    // END Android-removed: Resolves a hostname using Libcore.os.
+
     /**
      * Creates an InetAddress based on the provided host name and IP address.
      * No name service is checked for the validity of the address.
@@ -685,6 +1046,7 @@ class InetAddress implements java.io.Serializable {
         return getByAddress(host, addr, -1 /* scopeId */);
     }
 
+    // Android-added: Called by native code in Libcore.io.
     // Do not delete. Called from native code.
     private static InetAddress getByAddress(String host, byte[] addr, int scopeId)
         throws UnknownHostException {
@@ -740,6 +1102,7 @@ class InetAddress implements java.io.Serializable {
      */
     public static InetAddress getByName(String host)
         throws UnknownHostException {
+        // Android-changed: Rewritten on the top of Libcore.os.
         return impl.lookupAllHostAddr(host, NETID_UNSET)[0];
     }
 
@@ -784,6 +1147,8 @@ class InetAddress implements java.io.Serializable {
      */
     public static InetAddress[] getAllByName(String host)
         throws UnknownHostException {
+        // Android-changed: Resolves a hostname using Libcore.os.
+        // Also, returns both the Inet4 and Inet6 loopback for null/empty host
         return impl.lookupAllHostAddr(host, NETID_UNSET).clone();
     }
 
@@ -799,8 +1164,222 @@ class InetAddress implements java.io.Serializable {
      * @since 1.7
      */
     public static InetAddress getLoopbackAddress() {
+        // Android-changed: Always returns IPv6 loopback address in Android.
         return impl.loopbackAddresses()[0];
     }
+
+    // BEGIN Android-removed: Resolves a hostname using Libcore.os.
+    /*
+     * check if the literal address string has %nn appended
+     * returns -1 if not, or the numeric value otherwise.
+     *
+     * %nn may also be a string that represents the displayName of
+     * a currently available NetworkInterface.
+     *
+    private static int checkNumericZone (String s) throws UnknownHostException {
+        int percent = s.indexOf ('%');
+        int slen = s.length();
+        int digit, zone=0;
+        if (percent == -1) {
+            return -1;
+        }
+        for (int i=percent+1; i<slen; i++) {
+            char c = s.charAt(i);
+            if (c == ']') {
+                if (i == percent+1) {
+                    /* empty per-cent field *
+                    return -1;
+                }
+                break;
+            }
+            if ((digit = Character.digit (c, 10)) < 0) {
+                return -1;
+            }
+            zone = (zone * 10) + digit;
+        }
+        return zone;
+    }
+
+    private static InetAddress[] getAllByName0 (String host)
+        throws UnknownHostException
+    {
+        return getAllByName0(host, true);
+    }
+
+    /**
+     * package private so SocketPermission can call it
+     *
+    static InetAddress[] getAllByName0 (String host, boolean check)
+        throws UnknownHostException  {
+        return getAllByName0 (host, null, check);
+    }
+
+    private static InetAddress[] getAllByName0 (String host, InetAddress reqAddr, boolean check)
+        throws UnknownHostException  {
+
+        /* If it gets here it is presumed to be a hostname */
+        /* Cache.get can return: null, unknownAddress, or InetAddress[] */
+
+        /* make sure the connection to the host is allowed, before we
+         * give out a hostname
+         *
+        if (check) {
+            SecurityManager security = System.getSecurityManager();
+            if (security != null) {
+                security.checkConnect(host, -1);
+            }
+        }
+
+        InetAddress[] addresses = getCachedAddresses(host);
+
+        /* If no entry in cache, then do the host lookup *
+        if (addresses == null) {
+            addresses = getAddressesFromNameService(host, reqAddr);
+        }
+
+        if (addresses == unknown_array)
+            throw new UnknownHostException(host);
+
+        return addresses.clone();
+    }
+
+    private static InetAddress[] getAddressesFromNameService(String host, InetAddress reqAddr)
+        throws UnknownHostException
+    {
+        InetAddress[] addresses = null;
+        boolean success = false;
+        UnknownHostException ex = null;
+
+        // Check whether the host is in the lookupTable.
+        // 1) If the host isn't in the lookupTable when
+        //    checkLookupTable() is called, checkLookupTable()
+        //    would add the host in the lookupTable and
+        //    return null. So we will do the lookup.
+        // 2) If the host is in the lookupTable when
+        //    checkLookupTable() is called, the current thread
+        //    would be blocked until the host is removed
+        //    from the lookupTable. Then this thread
+        //    should try to look up the addressCache.
+        //     i) if it found the addresses in the
+        //        addressCache, checkLookupTable()  would
+        //        return the addresses.
+        //     ii) if it didn't find the addresses in the
+        //         addressCache for any reason,
+        //         it should add the host in the
+        //         lookupTable and return null so the
+        //         following code would do  a lookup itself.
+        if ((addresses = checkLookupTable(host)) == null) {
+            try {
+                // This is the first thread which looks up the addresses
+                // this host or the cache entry for this host has been
+                // expired so this thread should do the lookup.
+                for (NameService nameService : nameServices) {
+                    try {
+                        /*
+                         * Do not put the call to lookup() inside the
+                         * constructor.  if you do you will still be
+                         * allocating space when the lookup fails.
+                         *
+
+                        addresses = nameService.lookupAllHostAddr(host);
+                        success = true;
+                        break;
+                    } catch (UnknownHostException uhe) {
+                        if (host.equalsIgnoreCase("localhost")) {
+                            InetAddress[] local = new InetAddress[] { impl.loopbackAddress() };
+                            addresses = local;
+                            success = true;
+                            break;
+                        }
+                        else {
+                            addresses = unknown_array;
+                            success = false;
+                            ex = uhe;
+                        }
+                    }
+                }
+
+                // More to do?
+                if (reqAddr != null && addresses.length > 1 && !addresses[0].equals(reqAddr)) {
+                    // Find it?
+                    int i = 1;
+                    for (; i < addresses.length; i++) {
+                        if (addresses[i].equals(reqAddr)) {
+                            break;
+                        }
+                    }
+                    // Rotate
+                    if (i < addresses.length) {
+                        InetAddress tmp, tmp2 = reqAddr;
+                        for (int j = 0; j < i; j++) {
+                            tmp = addresses[j];
+                            addresses[j] = tmp2;
+                            tmp2 = tmp;
+                        }
+                        addresses[i] = tmp2;
+                    }
+                }
+                // Cache the address.
+                cacheAddresses(host, addresses, success);
+
+                if (!success && ex != null)
+                    throw ex;
+
+            } finally {
+                // Delete host from the lookupTable and notify
+                // all threads waiting on the lookupTable monitor.
+                updateLookupTable(host);
+            }
+        }
+
+        return addresses;
+    }
+
+
+    private static InetAddress[] checkLookupTable(String host) {
+        synchronized (lookupTable) {
+            // If the host isn't in the lookupTable, add it in the
+            // lookuptable and return null. The caller should do
+            // the lookup.
+            if (lookupTable.containsKey(host) == false) {
+                lookupTable.put(host, null);
+                return null;
+            }
+
+            // If the host is in the lookupTable, it means that another
+            // thread is trying to look up the addresses of this host.
+            // This thread should wait.
+            while (lookupTable.containsKey(host)) {
+                try {
+                    lookupTable.wait();
+                } catch (InterruptedException e) {
+                }
+            }
+        }
+
+        // The other thread has finished looking up the addresses of
+        // the host. This thread should retry to get the addresses
+        // from the addressCache. If it doesn't get the addresses from
+        // the cache, it will try to look up the addresses itself.
+        InetAddress[] addresses = getCachedAddresses(host);
+        if (addresses == null) {
+            synchronized (lookupTable) {
+                lookupTable.put(host, null);
+                return null;
+            }
+        }
+
+        return addresses;
+    }
+
+    private static void updateLookupTable(String host) {
+        synchronized (lookupTable) {
+            lookupTable.remove(host);
+            lookupTable.notifyAll();
+        }
+    }
+    */
+    // END Android-removed: Resolves a hostname using Libcore.os.
 
     /**
      * Returns an {@code InetAddress} object given the raw IP address .
@@ -822,6 +1401,15 @@ class InetAddress implements java.io.Serializable {
         throws UnknownHostException {
         return getByAddress(null, addr);
     }
+
+    // BEGIN Android-removed: Resolves a hostname using Libcore.os.
+    /*
+    private static InetAddress cachedLocalHost = null;
+    private static long cacheTime = 0;
+    private static final long maxCacheTime = 5000L;
+    private static final Object cacheLock = new Object();
+    */
+    // END Android-removed: Resolves a hostname using Libcore.os.
 
     /**
      * Returns the address of the local host. This is achieved by retrieving
@@ -847,9 +1435,67 @@ class InetAddress implements java.io.Serializable {
      * @see java.net.InetAddress#getByName(java.lang.String)
      */
     public static InetAddress getLocalHost() throws UnknownHostException {
+        // BEGIN Android-changed: Resolves a hostname using Libcore.os.
+        /*
+        SecurityManager security = System.getSecurityManager();
+        try {
+            String local = impl.getLocalHostName();
+
+            if (security != null) {
+                security.checkConnect(local, -1);
+            }
+
+            if (local.equals("localhost")) {
+                return impl.loopbackAddress();
+            }
+
+            InetAddress ret = null;
+            synchronized (cacheLock) {
+                long now = System.currentTimeMillis();
+                if (cachedLocalHost != null) {
+                    if ((now - cacheTime) < maxCacheTime) // Less than 5s old?
+                        ret = cachedLocalHost;
+                    else
+                        cachedLocalHost = null;
+                }
+
+                // we are calling getAddressesFromNameService directly
+                // to avoid getting localHost from cache
+                if (ret == null) {
+                    InetAddress[] localAddrs;
+                    try {
+                        localAddrs =
+                            InetAddress.getAddressesFromNameService(local, null);
+                    } catch (UnknownHostException uhe) {
+                        // Rethrow with a more informative error message.
+                        UnknownHostException uhe2 =
+                            new UnknownHostException(local + ": " +
+                                                     uhe.getMessage());
+                        uhe2.initCause(uhe);
+                        throw uhe2;
+                    }
+                    cachedLocalHost = localAddrs[0];
+                    cacheTime = now;
+                    ret = localAddrs[0];
+                }
+            }
+            return ret;
+        } catch (java.lang.SecurityException e) {
+            return impl.loopbackAddress();
+        }
+        */
         String local = Libcore.os.uname().nodename;
         return impl.lookupAllHostAddr(local, NETID_UNSET)[0];
+        // END Android-changed: Resolves a hostname using Libcore.os.
     }
+
+    // BEGIN Android-removed: Android doesn't need to call native init.
+    /**
+     * Perform class load-time initializations.
+     *
+    private static native void init();
+    */
+    // END Android-removed: Android doesn't need to call native init.
 
     /*
      * Returns the InetAddress representing anyLocalAddress
@@ -858,6 +1504,51 @@ class InetAddress implements java.io.Serializable {
     static InetAddress anyLocalAddress() {
         return impl.anyLocalAddress();
     }
+
+    // BEGIN Android-removed: Android doesn't load user-provided implementation.
+    /*
+     * Load and instantiate an underlying impl class
+     *
+    static InetAddressImpl loadImpl(String implName) {
+        Object impl = null;
+
+        /*
+         * Property "impl.prefix" will be prepended to the classname
+         * of the implementation object we instantiate, to which we
+         * delegate the real work (like native methods).  This
+         * property can vary across implementations of the java.
+         * classes.  The default is an empty String "".
+         *
+        String prefix = AccessController.doPrivileged(
+                      new GetPropertyAction("impl.prefix", ""));
+        try {
+            impl = Class.forName("java.net." + prefix + implName).newInstance();
+        } catch (ClassNotFoundException e) {
+            System.err.println("Class not found: java.net." + prefix +
+                               implName + ":\ncheck impl.prefix property " +
+                               "in your properties file.");
+        } catch (InstantiationException e) {
+            System.err.println("Could not instantiate: java.net." + prefix +
+                               implName + ":\ncheck impl.prefix property " +
+                               "in your properties file.");
+        } catch (IllegalAccessException e) {
+            System.err.println("Cannot access class: java.net." + prefix +
+                               implName + ":\ncheck impl.prefix property " +
+                               "in your properties file.");
+        }
+
+        if (impl == null) {
+            try {
+                impl = Class.forName(implName).newInstance();
+            } catch (Exception e) {
+                throw new Error("System property impl.prefix incorrect");
+            }
+        }
+
+        return (InetAddressImpl) impl;
+    }
+    */
+    // END Android-removed: Android doesn't load user-provided implementation.
 
     private void readObjectNoData (ObjectInputStream s) throws
                          IOException, ClassNotFoundException {
@@ -912,58 +1603,42 @@ class InetAddress implements java.io.Serializable {
 
     static final int NETID_UNSET = 0;
 
+    // BEGIN Android-added: Add methods required by frameworks/base.
+    // Particularly those required to deal with scope ids.
     /**
      * Returns true if the string is a valid numeric IPv4 or IPv6 address (such as "192.168.0.1").
-     * This copes with all forms of address that Java supports, detailed in the {@link InetAddress}
-     * class documentation.
+     *
+     * <p>This copes with all forms of address that Java supports, detailed in the
+     * {@link InetAddress} class documentation. An empty string is not treated as numeric.
      *
      * @hide used by frameworks/base to ensure that a getAllByName won't cause a DNS lookup.
+     * @deprecated Use {@link InetAddressUtils#isNumericAddress(String)} instead, if possible.
+     * @throws NullPointerException if the {@code address} is {@code null}.
      */
+    @Deprecated
     public static boolean isNumeric(String address) {
-        InetAddress inetAddress = parseNumericAddressNoThrow(address);
-        return inetAddress != null && disallowDeprecatedFormats(address, inetAddress) != null;
-    }
-
-    static InetAddress parseNumericAddressNoThrow(String address) {
-        // Accept IPv6 addresses (only) in square brackets for compatibility.
-        if (address.startsWith("[") && address.endsWith("]") && address.indexOf(':') != -1) {
-            address = address.substring(1, address.length() - 1);
-        }
-        StructAddrinfo hints = new StructAddrinfo();
-        hints.ai_flags = AI_NUMERICHOST;
-        InetAddress[] addresses = null;
-        try {
-            addresses = Libcore.os.android_getaddrinfo(address, hints, NETID_UNSET);
-        } catch (GaiException ignored) {
-        }
-        return (addresses != null) ? addresses[0] : null;
-    }
-
-    static InetAddress disallowDeprecatedFormats(String address, InetAddress inetAddress) {
-        // Only IPv4 addresses are problematic.
-        if (!(inetAddress instanceof Inet4Address) || address.indexOf(':') != -1) {
-            return inetAddress;
-        }
-        // If inet_pton(3) can't parse it, it must have been a deprecated format.
-        // We need to return inet_pton(3)'s result to ensure that numbers assumed to be octal
-        // by getaddrinfo(3) are reinterpreted by inet_pton(3) as decimal.
-        return Libcore.os.inet_pton(AF_INET, address);
+        return InetAddressUtils.parseNumericAddressNoThrowStripOptionalBrackets(address) != null;
     }
 
     /**
      * Returns an InetAddress corresponding to the given numeric address (such
      * as {@code "192.168.0.1"} or {@code "2001:4860:800d::68"}).
-     * This method will never do a DNS lookup. Non-numeric addresses are errors.
+     *
+     * <p>This method will never do a DNS lookup. Non-numeric addresses are errors. Passing either
+     * an empty string or a {@code null} as the {@code numericAddress} will return the
+     * {@link Inet6Address#LOOPBACK} address.
      *
      * @hide used by frameworks/base's NetworkUtils.numericToInetAddress
      * @throws IllegalArgumentException if {@code numericAddress} is not a numeric address
+     * @deprecated Use {@link InetAddressUtils#parseNumericAddress(String)} instead, if possible.
      */
+    @Deprecated
     public static InetAddress parseNumericAddress(String numericAddress) {
         if (numericAddress == null || numericAddress.isEmpty()) {
             return Inet6Address.LOOPBACK;
         }
-        InetAddress result = parseNumericAddressNoThrow(numericAddress);
-        result = disallowDeprecatedFormats(numericAddress, result);
+        InetAddress result = InetAddressUtils
+                .parseNumericAddressNoThrowStripOptionalBrackets(numericAddress);
         if (result == null) {
             throw new IllegalArgumentException("Not a numeric address: " + numericAddress);
         }
@@ -978,7 +1653,8 @@ class InetAddress implements java.io.Serializable {
     public static void clearDnsCache() {
         impl.clearAddressCache();
     }
-
+    // END Android-added: Add methods required by frameworks/base.
+    // BEGIN Android-added: Support for network (netId)-specific DNS resolution.
     /**
      * Operates identically to {@code getByName} except host resolution is
      * performed on the network designated by {@code netId}.
@@ -1007,14 +1683,20 @@ class InetAddress implements java.io.Serializable {
     public static InetAddress[] getAllByNameOnNet(String host, int netId) throws UnknownHostException {
         return impl.lookupAllHostAddr(host, netId).clone();
     }
-
-    // Only called by java.net.SocketPermission.
-    static InetAddress[] getAllByName0(String authHost, boolean check) throws UnknownHostException {
-        throw new UnsupportedOperationException();
-    }
-
-    // Only called by java.net.SocketPermission.
-    String getHostName(boolean check) {
-        throw new UnsupportedOperationException();
-    }
+    // END Android-added: Support for network (netId)-specific DNS resolution.
 }
+// BEGIN Android-removed: Android doesn't load user-provided implementation.
+/*
+ * Simple factory to create the impl
+ *
+class InetAddressImplFactory {
+
+    static InetAddressImpl create() {
+        return InetAddress.loadImpl(isIPv6Supported() ?
+                                    "Inet6AddressImpl" : "Inet4AddressImpl");
+    }
+
+    static native boolean isIPv6Supported();
+}
+*/
+// END Android-removed: Android doesn't load user-provided implementation.

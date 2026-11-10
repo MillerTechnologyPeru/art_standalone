@@ -30,7 +30,6 @@ import android.system.ErrnoException;
 import android.system.StructPasswd;
 import android.system.StructUtsname;
 import dalvik.system.VMRuntime;
-import dalvik.system.VMStack;
 import java.io.*;
 import java.lang.annotation.Annotation;
 import java.nio.channels.Channel;
@@ -41,9 +40,10 @@ import java.util.Properties;
 import java.util.PropertyPermission;
 import libcore.icu.ICU;
 import libcore.io.Libcore;
-import libcore.util.TimeZoneDataFiles;
+import libcore.timezone.TimeZoneDataFiles;
 
 import sun.reflect.CallerSensitive;
+import sun.reflect.Reflection;
 import sun.security.util.SecurityConstants;
 /**
  * The <code>System</code> class contains several useful class fields
@@ -452,10 +452,11 @@ public final class System {
 
     /**
      * The char[] specialized version of arraycopy().
-     *
-     * @hide internal use only
+     * Note: This method is required for runtime ART compiler optimizations.
+     * Do not remove or change the signature.
      */
-    public static void arraycopy(char[] src, int srcPos, char[] dst, int dstPos, int length) {
+    @SuppressWarnings("unused")
+    private static void arraycopy(char[] src, int srcPos, char[] dst, int dstPos, int length) {
         if (src == null) {
             throw new NullPointerException("src == null");
         }
@@ -506,9 +507,14 @@ public final class System {
 
     /**
      * The byte[] specialized version of arraycopy().
+     * Note: This method is required for runtime ART compiler optimizations.
+     * Do not remove or change the signature.
+     * Note: Unlike the others, this variant is public due to a dependency we
+     * are working on removing. b/74103559
      *
-     * @hide internal use only
+     * @hide
      */
+    @SuppressWarnings("unused")
     public static void arraycopy(byte[] src, int srcPos, byte[] dst, int dstPos, int length) {
         if (src == null) {
             throw new NullPointerException("src == null");
@@ -560,10 +566,11 @@ public final class System {
 
     /**
      * The short[] specialized version of arraycopy().
-     *
-     * @hide internal use only
+     * Note: This method is required for runtime ART compiler optimizations.
+     * Do not remove or change the signature.
      */
-    public static void arraycopy(short[] src, int srcPos, short[] dst, int dstPos, int length) {
+    @SuppressWarnings("unused")
+    private static void arraycopy(short[] src, int srcPos, short[] dst, int dstPos, int length) {
         if (src == null) {
             throw new NullPointerException("src == null");
         }
@@ -614,10 +621,11 @@ public final class System {
 
     /**
      * The int[] specialized version of arraycopy().
-     *
-     * @hide internal use only
+     * Note: This method is required for runtime ART compiler optimizations.
+     * Do not remove or change the signature.
      */
-    public static void arraycopy(int[] src, int srcPos, int[] dst, int dstPos, int length) {
+    @SuppressWarnings("unused")
+    private static void arraycopy(int[] src, int srcPos, int[] dst, int dstPos, int length) {
         if (src == null) {
             throw new NullPointerException("src == null");
         }
@@ -668,10 +676,11 @@ public final class System {
 
     /**
      * The long[] specialized version of arraycopy().
-     *
-     * @hide internal use only
+     * Note: This method is required for runtime ART compiler optimizations.
+     * Do not remove or change the signature.
      */
-    public static void arraycopy(long[] src, int srcPos, long[] dst, int dstPos, int length) {
+    @SuppressWarnings("unused")
+    private static void arraycopy(long[] src, int srcPos, long[] dst, int dstPos, int length) {
         if (src == null) {
             throw new NullPointerException("src == null");
         }
@@ -722,10 +731,11 @@ public final class System {
 
     /**
      * The float[] specialized version of arraycopy().
-     *
-     * @hide internal use only
+     * Note: This method is required for runtime ART compiler optimizations.
+     * Do not remove or change the signature.
      */
-    public static void arraycopy(float[] src, int srcPos, float[] dst, int dstPos, int length) {
+    @SuppressWarnings("unused")
+    private static void arraycopy(float[] src, int srcPos, float[] dst, int dstPos, int length) {
         if (src == null) {
             throw new NullPointerException("src == null");
         }
@@ -776,10 +786,11 @@ public final class System {
 
     /**
      * The double[] specialized version of arraycopy().
-     *
-     * @hide internal use only
+     * Note: This method is required for runtime ART compiler optimizations.
+     * Do not remove or change the signature.
      */
-    public static void arraycopy(double[] src, int srcPos, double[] dst, int dstPos, int length) {
+    @SuppressWarnings("unused")
+    private static void arraycopy(double[] src, int srcPos, double[] dst, int dstPos, int length) {
         if (src == null) {
             throw new NullPointerException("src == null");
         }
@@ -830,10 +841,11 @@ public final class System {
 
     /**
      * The boolean[] specialized version of arraycopy().
-     *
-     * @hide internal use only
+     * Note: This method is required for runtime ART compiler optimizations.
+     * Do not remove or change the signature.
      */
-    public static void arraycopy(boolean[] src, int srcPos, boolean[] dst, int dstPos, int length) {
+    @SuppressWarnings("unused")
+    private static void arraycopy(boolean[] src, int srcPos, boolean[] dst, int dstPos, int length) {
         if (src == null) {
             throw new NullPointerException("src == null");
         }
@@ -982,11 +994,9 @@ public final class System {
 
         StructUtsname info = Libcore.os.uname();
         p.put("os.arch", info.machine);
-        if (p.get("os.name") != null && !p.get("os.name").equals(info.sysname)) {
-            logE("Wrong compile-time assumption for os.name: " + p.get("os.name") + " vs " +
-                    info.sysname);
-            p.put("os.name", info.sysname);
-        }
+        // os.name was previously hardcoded to "Linux", but was reverted due to support
+        // for Fuchsia. b/121268567 shows initialization regressions.
+        p.put("os.name", info.sysname);
         p.put("os.version", info.release);
 
         // Android-added: Undocumented properties that exist only on Android.
@@ -1618,7 +1628,7 @@ public final class System {
      */
     @CallerSensitive
     public static void load(String filename) {
-        Runtime.getRuntime().load0(VMStack.getStackClass1(), filename);
+        Runtime.getRuntime().load0(Reflection.getCallerClass(), filename);
     }
 
     /**
@@ -1654,7 +1664,7 @@ public final class System {
      */
     @CallerSensitive
     public static void loadLibrary(String libname) {
-        Runtime.getRuntime().loadLibrary0(VMStack.getCallingClassLoader(), libname);
+        Runtime.getRuntime().loadLibrary0(Reflection.getCallerClass(), libname);
     }
 
     /**

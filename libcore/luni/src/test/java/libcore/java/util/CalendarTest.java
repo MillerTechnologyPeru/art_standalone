@@ -17,16 +17,14 @@
 package libcore.java.util;
 
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 
 public class CalendarTest extends junit.framework.TestCase {
 
@@ -50,7 +48,7 @@ public class CalendarTest extends junit.framework.TestCase {
         // get(Calendar.ZONE_OFFSET) returns the zone offset of the time zone passed to setTimeZone.
         Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.US);
         assertEquals(0, cal.get(Calendar.ZONE_OFFSET));
-        TimeZone tz = java.util.TimeZone.getTimeZone("GMT+7");
+        TimeZone tz = TimeZone.getTimeZone("GMT+7");
         cal.setTimeZone(tz);
         assertEquals(25200000, cal.get(Calendar.ZONE_OFFSET));
     }
@@ -418,6 +416,18 @@ public class CalendarTest extends junit.framework.TestCase {
         @Override
         public void roll(int field, boolean increment) {
 
+        }
+    }
+
+    /**
+     * Ensures that Gregorian is the default Calendar for all Locales in Android. This is the
+     * historic behavior on Android; this test exists to avoid unintentional regressions.
+     * http://b/80294184
+     */
+    public void testAllDefaultCalendar_Gregorian() {
+        for (Locale locale : Locale.getAvailableLocales()) {
+            assertTrue("Default calendar should be Gregorian: " + locale,
+                    Calendar.getInstance(locale) instanceof GregorianCalendar);
         }
     }
 }

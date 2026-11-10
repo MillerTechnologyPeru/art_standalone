@@ -23,14 +23,15 @@
 
 #include <android/log.h>
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedPrimitiveArray.h>
 #include <nativehelper/ScopedStringChars.h>
 #include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/jni_macros.h>
 #include <nativehelper/toStringArray.h>
 
 #include "IcuUtilities.h"
+#include "JniConstants.h"
 #include "JniException.h"
 #include "unicode/ucnv.h"
 #include "unicode/ucnv_cb.h"
@@ -351,7 +352,7 @@ static jfloat NativeConverter_getAveBytesPerChar(JNIEnv*, jclass, jlong address)
 
 static jobjectArray NativeConverter_getAvailableCharsetNames(JNIEnv* env, jclass) {
     int32_t num = ucnv_countAvailable();
-    jobjectArray result = env->NewObjectArray(num, JniConstants::stringClass, NULL);
+    jobjectArray result = env->NewObjectArray(num, JniConstants::GetStringClass(env), NULL);
     if (result == NULL) {
         return NULL;
     }
@@ -427,15 +428,21 @@ static void NativeConverter_setCallbackEncode(JNIEnv* env, jclass, jlong address
 
     EncoderCallbackContext* callbackContext = const_cast<EncoderCallbackContext*>(
             reinterpret_cast<const EncoderCallbackContext*>(oldCallbackContext));
+    // Hold the reference to any new callbackContext we create in a unique_ptr
+    // so that the default behavior is to collect it automatically if we exit
+    // early.
+    std::unique_ptr<EncoderCallbackContext> callbackContextDeleter;
     if (callbackContext == NULL) {
         callbackContext = new EncoderCallbackContext;
+        callbackContextDeleter.reset(callbackContext);
     }
 
     callbackContext->onMalformedInput = getFromUCallback(onMalformedInput);
     callbackContext->onUnmappableInput = getFromUCallback(onUnmappableInput);
 
     ScopedByteArrayRO replacementBytes(env, javaReplacement);
-    if (replacementBytes.get() == NULL) {
+    if (replacementBytes.get() == NULL
+            || replacementBytes.size() > sizeof(callbackContext->replacementBytes)) {
         maybeThrowIcuException(env, "replacementBytes", U_ILLEGAL_ARGUMENT_ERROR);
         return;
     }
@@ -444,6 +451,10 @@ static void NativeConverter_setCallbackEncode(JNIEnv* env, jclass, jlong address
 
     UErrorCode errorCode = U_ZERO_ERROR;
     ucnv_setFromUCallBack(cnv, CHARSET_ENCODER_CALLBACK, callbackContext, NULL, NULL, &errorCode);
+    // Iff callbackContextDeleter holds a reference to a callbackContext we can
+    // prevent it being automatically deleted here as responsibility for deletion
+    // has passed to the code that closes the NativeConverter.
+    callbackContextDeleter.release();
     maybeThrowIcuException(env, "ucnv_setFromUCallBack", errorCode);
 }
 
@@ -511,15 +522,21 @@ static void NativeConverter_setCallbackDecode(JNIEnv* env, jclass, jlong address
 
     DecoderCallbackContext* callbackContext = const_cast<DecoderCallbackContext*>(
             reinterpret_cast<const DecoderCallbackContext*>(oldCallbackContext));
+    // Hold the reference to any new callbackContext we create in a unique_ptr
+    // so that the default behavior is to collect it automatically if we exit
+    // early.
+    std::unique_ptr<DecoderCallbackContext> callbackContextDeleter;
     if (callbackContext == NULL) {
         callbackContext = new DecoderCallbackContext;
+        callbackContextDeleter.reset(callbackContext);
     }
 
     callbackContext->onMalformedInput = getToUCallback(onMalformedInput);
     callbackContext->onUnmappableInput = getToUCallback(onUnmappableInput);
 
     ScopedStringChars replacement(env, javaReplacement);
-    if (replacement.get() == NULL) {
+    if (replacement.get() == NULL
+                || replacement.size() > sizeof(callbackContext->replacementChars) / sizeof(UChar)) {
         maybeThrowIcuException(env, "replacement", U_ILLEGAL_ARGUMENT_ERROR);
         return;
     }
@@ -528,6 +545,10 @@ static void NativeConverter_setCallbackDecode(JNIEnv* env, jclass, jlong address
 
     UErrorCode errorCode = U_ZERO_ERROR;
     ucnv_setToUCallBack(cnv, CHARSET_DECODER_CALLBACK, callbackContext, NULL, NULL, &errorCode);
+    // Iff callbackContextDeleter holds a reference to a callbackContext we can
+    // prevent it being automatically deleted here as responsibility for deletion
+    // has passed to the code that closes the NativeConverter.
+    callbackContextDeleter.release();
     maybeThrowIcuException(env, "ucnv_setToUCallBack", errorCode);
 }
 
@@ -625,7 +646,7 @@ static jobject NativeConverter_charsetForName(JNIEnv* env, jclass, jstring chars
     }
 
     // Construct the CharsetICU object.
-    static jmethodID charsetConstructor = env->GetMethodID(JniConstants::charsetICUClass, "<init>",
+    static jmethodID charsetConstructor = env->GetMethodID(JniConstants::GetCharsetICUClass(env), "<init>",
             "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;)V");
     if (env->ExceptionCheck()) {
         return NULL;
@@ -637,7 +658,7 @@ static jobject NativeConverter_charsetForName(JNIEnv* env, jclass, jstring chars
         return NULL;
     }
 
-    return env->NewObject(JniConstants::charsetICUClass, charsetConstructor,
+    return env->NewObject(JniConstants::GetCharsetICUClass(env), charsetConstructor,
             javaCanonicalName, versionedIcuCanonicalNameStr, javaAliases);
 }
 
@@ -649,8 +670,7 @@ static jlong NativeConverter_getNativeFinalizer(JNIEnv*, jclass) {
     return reinterpret_cast<jlong>(&FreeNativeConverter);
 }
 
-
-static jlong NativeConverter_getNativeSize(JNIEnv*, jclass, jstring) {
+static jlong NativeConverter_getNativeSize(JNIEnv*, jclass) {
     // TODO: Improve estimate.
     return 200;
 }

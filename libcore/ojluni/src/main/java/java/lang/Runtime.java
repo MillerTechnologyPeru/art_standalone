@@ -29,14 +29,17 @@ package java.lang;
 import dalvik.annotation.optimization.FastNative;
 import java.io.*;
 import java.util.StringTokenizer;
+
+import dalvik.system.BlockGuard;
 import sun.reflect.CallerSensitive;
 import java.lang.ref.FinalizerReference;
 import java.util.ArrayList;
 import java.util.List;
 import dalvik.system.BaseDexClassLoader;
 import dalvik.system.VMDebug;
-import dalvik.system.VMStack;
 import dalvik.system.VMRuntime;
+import sun.reflect.Reflection;
+
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
 import libcore.util.EmptyArray;
@@ -765,7 +768,14 @@ public class Runtime {
      * The method {@link System#gc()} is the conventional and convenient
      * means of invoking this method.
      */
-    public native void gc();
+    // Android-changed: Added BlockGuard check to gc()
+    // public native void gc();
+    public void gc() {
+        BlockGuard.getThreadPolicy().onExplicitGc();
+        nativeGc();
+    }
+
+    private native void nativeGc();
 
     /* Wormhole for calling java.lang.ref.Finalizer.runFinalization */
     private static native void runFinalization0();
@@ -888,7 +898,7 @@ public class Runtime {
      */
     @CallerSensitive
     public void load(String filename) {
-        load0(VMStack.getStackClass1(), filename);
+        load0(Reflection.getCallerClass(), filename);
     }
 
     /** Check target sdk, if it's higher than N, we throw an UnsupportedOperationException */
@@ -909,7 +919,7 @@ public class Runtime {
         if (absolutePath == null) {
             throw new NullPointerException("absolutePath == null");
         }
-        String error = doLoad(absolutePath, loader);
+        String error = nativeLoad(absolutePath, loader);
         if (error != null) {
             throw new UnsatisfiedLinkError(error);
         }
@@ -923,7 +933,7 @@ public class Runtime {
         if (filename == null) {
             throw new NullPointerException("filename == null");
         }
-        String error = doLoad(filename, fromClass.getClassLoader());
+        String error = nativeLoad(filename, fromClass.getClassLoader());
         if (error != null) {
             throw new UnsatisfiedLinkError(error);
         }
@@ -975,7 +985,26 @@ public class Runtime {
      */
     @CallerSensitive
     public void loadLibrary(String libname) {
-        loadLibrary0(VMStack.getCallingClassLoader(), libname);
+        loadLibrary0(Reflection.getCallerClass(), libname);
+    }
+
+    // BEGIN Android-changed: Different implementation of loadLibrary0(Class, String).
+    /*
+    synchronized void loadLibrary0(Class<?> fromClass, String libname) {
+        SecurityManager security = System.getSecurityManager();
+        if (security != null) {
+            security.checkLink(libname);
+        }
+        if (libname.indexOf((int)File.separatorChar) != -1) {
+            throw new UnsatisfiedLinkError(
+    "Directory separator should not appear in library name: " + libname);
+        }
+        ClassLoader.loadLibrary(fromClass, libname, false);
+    }
+    */
+    void loadLibrary0(Class<?> fromClass, String libname) {
+        ClassLoader classLoader = ClassLoader.getClassLoader(fromClass);
+        loadLibrary0(classLoader, fromClass, libname);
     }
 
     /**
@@ -989,19 +1018,45 @@ public class Runtime {
      * @hide
      */
     public void loadLibrary(String libname, ClassLoader classLoader) {
-        //checkTargetSdkVersionForLoad("java.lang.Runtime#loadLibrary(String, ClassLoader)");
-        // java.lang.System.logV("java.lang.Runtime#loadLibrary(String, ClassLoader)" +
-        //                       " is private and will be removed in a future Android release");
-        loadLibrary0(classLoader, libname);
+        checkTargetSdkVersionForLoad("java.lang.Runtime#loadLibrary(String, ClassLoader)");
+        java.lang.System.logE("java.lang.Runtime#loadLibrary(String, ClassLoader)" +
+                              " is private and will be removed in a future Android release");
+        // Pass null for callerClass, we don't know it at this point. Passing null preserved
+        // the behavior when we used to not pass the class.
+        loadLibrary0(classLoader, null, libname);
     }
 
-    synchronized void loadLibrary0(ClassLoader loader, String libname) {
+    // This overload exists for @UnsupportedAppUsage
+    void loadLibrary0(ClassLoader loader, String libname) {
+        // Pass null for callerClass, we don't know it at this point. Passing null preserved
+        // the behavior when we used to not pass the class.
+        loadLibrary0(loader, null, libname);
+    }
+    
+    /**
+     * Loads the shared library {@code libname} in the context of {@code loader} and
+     * {@code callerClass}.
+     *
+     * @param      loader    the class loader that initiated the loading. Used by the
+     *                       underlying linker to determine linker namespace. A {@code null}
+     *                       value represents the boot class loader.
+     * @param      fromClass the class that initiated the loading. Used when loader is
+     *                       {@code null} and ignored in all other cases. When used, it 
+     *                       determines the linker namespace from the class's .dex location.
+     *                       {@code null} indicates the default namespace for the boot 
+     *                       class loader.
+     * @param      libname   the name of the library.
+     */
+    private synchronized void loadLibrary0(ClassLoader loader, Class<?> callerClass, String libname) {
         if (libname.indexOf((int)File.separatorChar) != -1) {
             throw new UnsatisfiedLinkError(
     "Directory separator should not appear in library name: " + libname);
         }
         String libraryName = libname;
-        if (loader != null) {
+        // Android-note: BootClassLoader doesn't implement findLibrary(). http://b/111850480
+        // Android's class.getClassLoader() can return BootClassLoader where the RI would
+        // have returned null; therefore we treat BootClassLoader the same as null here.
+        if (loader != null && !(loader instanceof BootClassLoader)) {
             String filename = loader.findLibrary(libraryName);
             if (filename == null) {
                 // It's not necessarily true that the ClassLoader used
@@ -1011,33 +1066,21 @@ public class Runtime {
                 throw new UnsatisfiedLinkError(loader + " couldn't find \"" +
                                                System.mapLibraryName(libraryName) + "\"");
             }
-            String error = doLoad(filename, loader);
+            String error = nativeLoad(filename, loader);
             if (error != null) {
                 throw new UnsatisfiedLinkError(error);
             }
             return;
         }
 
+        // We know some apps use mLibPaths directly, potentially assuming it's not null.
+        // Initialize it here to make sure apps see a non-null value.
+        getLibPaths();
         String filename = System.mapLibraryName(libraryName);
-        List<String> candidates = new ArrayList<String>();
-        String lastError = null;
-        for (String directory : getLibPaths()) {
-            String candidate = directory + filename;
-            candidates.add(candidate);
-
-            if (IoUtils.canOpenReadOnly(candidate)) {
-                String error = doLoad(candidate, loader);
-                if (error == null) {
-                    return; // We successfully loaded the library. Job done.
-                }
-                lastError = error;
-            }
+        String error = nativeLoad(filename, loader, callerClass);
+        if (error != null) {
+            throw new UnsatisfiedLinkError(error);
         }
-
-        if (lastError != null) {
-            throw new UnsatisfiedLinkError(lastError);
-        }
-        throw new UnsatisfiedLinkError("Library " + libraryName + " not found; tried " + candidates);
     }
 
     private volatile String[] mLibPaths = null;
@@ -1054,13 +1097,7 @@ public class Runtime {
     }
 
     private static String[] initLibPaths() {
-        String javaLibraryPath = null;
-        String javaBootLibraryPath = System.getProperty("java.boot.library.path");
-        if(javaBootLibraryPath != null) {
-            javaLibraryPath = javaBootLibraryPath + ":" + System.getProperty("java.library.path");
-        } else {
-            javaLibraryPath = System.getProperty("java.library.path");
-        }
+        String javaLibraryPath = System.getProperty("java.library.path");
         if (javaLibraryPath == null) {
             return EmptyArray.STRING;
         }
@@ -1073,44 +1110,13 @@ public class Runtime {
         }
         return paths;
     }
-    private String doLoad(String name, ClassLoader loader) {
-        // Android apps are forked from the zygote, so they can't have a custom LD_LIBRARY_PATH,
-        // which means that by default an app's shared library directory isn't on LD_LIBRARY_PATH.
 
-        // The PathClassLoader set up by frameworks/base knows the appropriate path, so we can load
-        // libraries with no dependencies just fine, but an app that has multiple libraries that
-        // depend on each other needed to load them in most-dependent-first order.
-
-        // We added API to Android's dynamic linker so we can update the library path used for
-        // the currently-running process. We pull the desired path out of the ClassLoader here
-        // and pass it to nativeLoad so that it can call the private dynamic linker API.
-
-        // We didn't just change frameworks/base to update the LD_LIBRARY_PATH once at the
-        // beginning because multiple apks can run in the same process and third party code can
-        // use its own BaseDexClassLoader.
-
-        // We didn't just add a dlopen_with_custom_LD_LIBRARY_PATH call because we wanted any
-        // dlopen(3) calls made from a .so's JNI_OnLoad to work too.
-
-        // So, find out what the native library search path is for the ClassLoader in question...
-        String librarySearchPath = null;
-        if (loader != null && loader instanceof BaseDexClassLoader) {
-            BaseDexClassLoader dexClassLoader = (BaseDexClassLoader) loader;
-            librarySearchPath = dexClassLoader.getLdLibraryPath();
-        }
-        // nativeLoad should be synchronized so there's only one LD_LIBRARY_PATH in use regardless
-        // of how many ClassLoaders are in the system, but dalvik doesn't support synchronized
-        // internal natives.
-        synchronized (this) {
-            return nativeLoad(name, loader);
-        }
-    }
-
-    // TODO: should be synchronized, but dalvik doesn't support synchronized internal natives.
     private static String nativeLoad(String filename, ClassLoader loader) {
         return nativeLoad(filename, loader, null);
     }
+
     private static native String nativeLoad(String filename, ClassLoader loader, Class<?> caller);
+    // END Android-changed: Different implementation of loadLibrary0(Class, String).
 
     /**
      * Creates a localized version of an input stream. This method takes

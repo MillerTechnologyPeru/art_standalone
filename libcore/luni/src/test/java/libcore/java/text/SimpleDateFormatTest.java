@@ -33,6 +33,14 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
     private static final TimeZone AUSTRALIA_LORD_HOWE = TimeZone.getTimeZone("Australia/Lord_Howe");
     private static final TimeZone UTC = TimeZone.getTimeZone("Etc/UTC");
 
+    /**
+     * The list of time zone ids formatted as "UTC".
+     */
+    private static final String[] UTC_ZONE_IDS = new String[] {
+            "Etc/UCT", "Etc/UTC", "Etc/Universal", "Etc/Zulu", "UCT", "UTC", "Universal", "Zulu"
+    };
+
+
     private Locale defaultLocale;
 
     @Override
@@ -47,6 +55,18 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
     public void tearDown() throws Exception {
         Locale.setDefault(defaultLocale);
         super.tearDown();
+    }
+
+    /**
+     * Tests that the default constructor uses the data in the default locale
+     */
+    public void testDefaultConstructor_localeUS() {
+        SimpleDateFormat sdf = new SimpleDateFormat();
+        DateFormat referencedDateFormat = DateFormat.getDateTimeInstance(
+                DateFormat.SHORT, DateFormat.SHORT, Locale.US);
+        Date date = new Date(0);
+
+        assertEquals(referencedDateFormat.format(date), sdf.format(date));
     }
 
     // The RI fails this test.
@@ -551,11 +571,109 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
         assertEquals(Calendar.MONDAY, parseDateUtc(en, "uu", "1").get(Calendar.DAY_OF_WEEK));
     }
 
-    // http://b/20879084
-    public void testFormatUtc() {
-        DateFormat dateFormat = new SimpleDateFormat("z", Locale.ENGLISH);
-        dateFormat.setTimeZone(UTC);
-        assertEquals("UTC", dateFormat.format(new Date(0)));
+    // Tests that Android's SimpleDateFormat provides localized short strings for UTC
+    // (http://b/36337342) i.e. it does not fall back to "GMT" or "GMT+00:00".
+    public void testFormatUtcShort() {
+        String timeZonePattern = "z";
+        int timeZoneStyle = TimeZone.SHORT;
+
+        doTestFormat(Locale.ENGLISH, timeZoneStyle, timeZonePattern, "UTC");
+        doTestFormat(Locale.FRANCE, timeZoneStyle, timeZonePattern, "UTC");
+        doTestFormat(Locale.SIMPLIFIED_CHINESE, timeZoneStyle, timeZonePattern, "UTC");
+    }
+
+    // Tests that Android's SimpleDateFormat provides localized long strings for UTC
+    // (http://b/36337342)
+    public void testFormatUtcLong() {
+        String timeZonePattern = "zzzz";
+        int timeZoneStyle = TimeZone.LONG;
+        doTestFormat(Locale.ENGLISH, timeZoneStyle, timeZonePattern, "Coordinated Universal Time");
+        doTestFormat(Locale.FRANCE, timeZoneStyle, timeZonePattern, "Temps universel coordonné");
+        doTestFormat(Locale.SIMPLIFIED_CHINESE, timeZoneStyle, timeZonePattern, "协调世界时");
+    }
+
+    private static void doTestFormat(Locale locale, int timeZoneStyle, String timeZonePattern,
+            String expectedString) {
+        DateFormat dateFormat = new SimpleDateFormat(timeZonePattern, locale);
+        for (String timeZoneId : UTC_ZONE_IDS) {
+            TimeZone timeZone = TimeZone.getTimeZone(timeZoneId);
+
+            // Confirm the time zone ID was recognized and we didn't just get "GMT".
+            assertEquals(timeZoneId, timeZone.getID());
+
+            dateFormat.setTimeZone(timeZone);
+            String timeZoneString = dateFormat.format(new Date(0));
+            assertEquals(timeZone.getDisplayName(
+                    false /* daylight */, timeZoneStyle, locale), timeZoneString);
+
+            assertEquals(expectedString, timeZoneString);
+        }
+    }
+
+    // Tests that Android's SimpleDateFormat can parse localized short strings for UTC
+    // (http://b/36337342)
+    public void testParseUtcShort() throws Exception {
+        String timeZonePattern = "z";
+        int timeZoneStyle = TimeZone.SHORT;
+        doUtcParsingTest(Locale.ENGLISH, timeZonePattern, timeZoneStyle, "UTC");
+        doUtcParsingTest(Locale.FRENCH, timeZonePattern, timeZoneStyle, "UTC");
+        doUtcParsingTest(Locale.SIMPLIFIED_CHINESE, timeZonePattern, timeZoneStyle, "UTC");
+    }
+
+    // Tests that Android's SimpleDateFormat can parse localized long strings for UTC
+    // (http://b/36337342)
+    public void testParseUtcLong() throws Exception {
+        String timeZonePattern = "zzzz";
+        int timeZoneStyle = TimeZone.LONG;
+        doUtcParsingTest(Locale.ENGLISH, timeZonePattern, timeZoneStyle,
+                "Coordinated Universal Time");
+        doUtcParsingTest(Locale.FRENCH, timeZonePattern, timeZoneStyle,
+                "Temps universel coordonné");
+        doUtcParsingTest(Locale.SIMPLIFIED_CHINESE, timeZonePattern, timeZoneStyle,
+                "协调世界时");
+    }
+
+    private static void doUtcParsingTest(Locale locale, String timeZonePattern, int timeZoneStyle,
+            String timeZoneString) throws Exception {
+        String basePattern = "yyyyMMdd HH:mm:ss.SSS";
+        String fullPattern = basePattern + " " + timeZonePattern;
+
+        TimeZone nonUtcZone = TimeZone.getTimeZone("America/Los_Angeles");
+
+        DateFormat formatter = new SimpleDateFormat(basePattern, locale);
+        DateFormat parser = new SimpleDateFormat(fullPattern, locale);
+
+        for (String timeZoneId : UTC_ZONE_IDS) {
+            TimeZone timeZone = TimeZone.getTimeZone(timeZoneId);
+
+            // Confirm the time zone ID was recognized and we didn't just get "GMT".
+            assertEquals(timeZoneId, timeZone.getID());
+
+            assertEquals(timeZoneString,
+                    timeZone.getDisplayName(false /* daylight */, timeZoneStyle, locale));
+
+            // Format an arbitrary instant in the chosen time zone. We should get something like
+            // "20180126 13:23:34.456".
+            Date dateToFormat = new Date();
+
+            formatter.setTimeZone(timeZone);
+            String dateTimeString = formatter.format(dateToFormat);
+
+            // Append the time zone. e.g. "20180126 13:23:34.456 Coordinated Universal Time".
+            String dateTimeStringWithTimeZone = dateTimeString + " " + timeZoneString;
+
+            // Androidism: The formatter always resets the time zone of the formatter after parsing
+            // but we set it here to make it very clear the parser must be using a non-UTC time
+            // zone by default even though the string provides all the time zone information.
+            parser.setTimeZone(nonUtcZone);
+
+            // Parse the date with time zone back, which should be interpreted as being in UTC.
+            Date parsedDate = parser.parse(dateTimeStringWithTimeZone);
+
+            // The original instant should be returned, which means the formatter / parser were able
+            // to understand the time zone in the string.
+            assertEquals(dateToFormat, parsedDate);
+        }
     }
 
     // http://b/35134326
@@ -576,6 +694,97 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
         checkTimeZoneParsingErrorIndex(dateFormat);
     }
 
+    // Tests that 'b' and 'B' pattern symbols are silently ignored so that CLDR 32 patterns
+    // can be used. http://b/68139386
+    public void testDayPeriodFormat() throws Exception {
+        SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        Date date = isoFormat.parse("2017-01-01T08:00:00");
+
+        for (Locale locale : new Locale[] { Locale.US, Locale.FRANCE }) {
+            // Pattern letter 'b'
+            assertDayPeriodFormat("HHb", date, "08", locale);
+            assertDayPeriodFormat("HHbb", date, "08", locale);
+            assertDayPeriodFormat("HHbbb", date, "08", locale);
+            assertDayPeriodFormat("HHbbbb", date, "08", locale);
+            assertDayPeriodFormat("HHbbbbb", date, "08", locale);
+
+            // Pattern letter 'B'
+            assertDayPeriodFormat("HHB", date, "08", locale);
+            assertDayPeriodFormat("HHBB", date, "08", locale);
+            assertDayPeriodFormat("HHBBB", date, "08", locale);
+            assertDayPeriodFormat("HHBBBB", date, "08", locale);
+            assertDayPeriodFormat("HHBBBBB", date, "08", locale);
+        }
+    }
+
+    // Tests that SimpleDateFormat with 'b' and 'B' pattern symbols can't parse any date
+    public void testDayPeriodParse() {
+        assertDayPeriodParseFailure("b", "");
+        assertDayPeriodParseFailure("HHb", "1");
+        assertDayPeriodParseFailure("HHb", "12");
+        assertDayPeriodParseFailure("HH b", "12 AM");
+        assertDayPeriodParseFailure("HH b", "12 midnight");
+
+        assertDayPeriodParseFailure("B", "");
+        assertDayPeriodParseFailure("HHB", "8");
+        assertDayPeriodParseFailure("HHB", "08");
+        assertDayPeriodParseFailure("HH B", "08 AM");
+        assertDayPeriodParseFailure("HH B", "08 in the morning");
+    }
+
+    public void testContextSensitiveMonth() {
+        Locale ru = new Locale("ru");
+        assertEquals("1", formatDateUtc(ru, "M"));
+        assertEquals("01", formatDateUtc(ru, "MM"));
+        assertEquals("янв.", formatDateUtc(ru, "MMM"));
+        assertEquals("января", formatDateUtc(ru, "MMMM"));
+        assertEquals("Я", formatDateUtc(ru, "MMMMM"));
+    }
+
+    /*
+     * Tests that forced standalone form is not used on Android. In some languages, e.g. Russian,
+     * Polish or Czech, in some cases the month name form depends on the usage context. For example,
+     * January in Russian is "Январь" (nominative case), but if you say 11th of January
+     * (genitive case), it will look like "11 Января" (notice the difference in the last letter).
+     * Five Ms format makes month name independent on the context (in this case "11 Январь").
+     */
+    public void testContextSensitiveMonth_nonGregorianCalendar() {
+        final Locale ru = new Locale("ru");
+        final Locale cs = new Locale("cs");
+
+        // The RI forces standalone form here, which would be "январь".
+        // Android does not force standalone form. http://b/66411240#comment7
+        assertEquals("янв.", formatDateNonGregorianCalendar("MMM", ru));
+        assertEquals("января", formatDateNonGregorianCalendar("MMMM", ru));
+        assertEquals("января", formatDateNonGregorianCalendar("MMMMM", ru));
+        assertEquals("led", formatDateNonGregorianCalendar("MMM", cs));
+        assertEquals("ledna", formatDateNonGregorianCalendar("MMMM", cs));
+        assertEquals("ledna", formatDateNonGregorianCalendar("MMMMM", cs));
+
+        // Ensure that Android standalone form is used for Ls format strings
+        assertEquals("янв.", formatDateNonGregorianCalendar("LLL", ru));
+        assertEquals("январь", formatDateNonGregorianCalendar("LLLL", ru));
+        assertEquals("январь", formatDateNonGregorianCalendar("LLLLL", ru));
+        assertEquals("led", formatDateNonGregorianCalendar("LLL", cs));
+        assertEquals("leden", formatDateNonGregorianCalendar("LLLL", cs));
+        assertEquals("leden", formatDateNonGregorianCalendar("LLLLL", cs));
+    }
+
+    private void assertDayPeriodParseFailure(String pattern, String source) {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern, Locale.US);
+        ParsePosition parsePosition = new ParsePosition(0);
+        Date d = simpleDateFormat.parse(source, parsePosition);
+        assertNull(d);
+        assertEquals(0, parsePosition.getIndex());
+    }
+
+    private void assertDayPeriodFormat(String pattern, Date date, String expected, Locale locale) {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern, locale);
+        simpleDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        assertEquals(expected, simpleDateFormat.format(date));
+    }
+
     private void checkTimeZoneParsingErrorIndex(SimpleDateFormat dateFormat) {
         ParsePosition pos = new ParsePosition(0);
         Date parsed;
@@ -586,19 +795,56 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
 
     // http://b/38396219
     public void testDisplayNamesOnNonGregorianCalendar() {
-        assertEquals("Jan", formatDateNonGregorianCalendar("MMM")); // MONTH
-        assertEquals("Jan", formatDateNonGregorianCalendar("LLL")); // MONTH_STANDALONE
-        assertEquals("Thu", formatDateNonGregorianCalendar("EEE")); // DAY_OF_WEEK
-        assertEquals("Thu", formatDateNonGregorianCalendar("ccc")); // STANDALONE_DAY_OF_WEEK
+        assertEquals("Jan", formatDateNonGregorianCalendar("MMM", Locale.US)); // MONTH
+        assertEquals("Jan", formatDateNonGregorianCalendar("LLL", Locale.US)); // MONTH_STANDALONE
+        assertEquals("Thu", formatDateNonGregorianCalendar("EEE", Locale.US)); // DAY_OF_WEEK
+        assertEquals("Thu", formatDateNonGregorianCalendar("ccc", Locale.US)); // STANDALONE_DAY_OF_WEEK
+    }
+
+    /*
+     * This is a regression test to ensure that month name can't be parsed using narrow format.
+     * There are still some cases when parsing can succeed, because on some locales
+     * (e.g. "ko", "th" and others) long, short and narrow forms of month are equal.
+     * There are two locales tested: AK and UK. AK locale has all months names unique
+     * (i.e. 01, 02, 03, ...), so there is no ambiguity and theoretically it is possible to parse
+     * them, however SimpleDateFormat doesn't allow it. UK locale is ambiguous
+     * (i.e. J, F, M, A, M, J, J, ...) so it is impossible to distinguish January, June or July in
+     * narrow form.
+     */
+    public void testParseNarrowFormat_throws() {
+        // narrow format for months is not ambiguous (01, 02, 03, ...)
+        checkParseNarrowFormat_throws(Locale.forLanguageTag("ak"));
+        // narrow format for months is ambiguous (J, F, M, A, M, J, J, ...).
+        checkParseNarrowFormat_throws(Locale.UK);
+    }
+
+    private static void checkParseNarrowFormat_throws(Locale locale) {
+        final Date date = new Date(0);
+        final TimeZone tz = TimeZone.getTimeZone("UTC");
+
+        // Format the date with DateFormatSymbol data and parsing it with Calendar data
+        SimpleDateFormat sdf = new SimpleDateFormat("MMMMM", locale);
+        sdf.setTimeZone(tz);
+        String formattedDate = sdf.format(date);
+
+        // non-gregorian calendar to trigger getDisplayNamesMap() call while
+        // parsing narrow format date
+        sdf.setCalendar(new NonGregorianCalendar(tz, locale));
+
+        try {
+            sdf.parse(formattedDate);
+            fail(String.format("Parsed unparseable date on %s locale", locale.toLanguageTag()));
+        } catch (ParseException expected) {
+        }
     }
 
     /**
      * Format a date using a "non-gregorian" calendar. This means that we use a calendar that is not
      * exactly {@code java.util.GregorianCalendar} as checked by
-     * {@link SimpleDateFormat#isGregorianCalendar()}.
+     * {@link SimpleDateFormat#useDateFormatSymbols()}.
      */
-    private static String formatDateNonGregorianCalendar(String fmt) {
-        DateFormat dateFormat = new SimpleDateFormat(fmt, Locale.US);
+    private static String formatDateNonGregorianCalendar(String fmt, Locale locale) {
+        DateFormat dateFormat = new SimpleDateFormat(fmt, locale);
         NonGregorianCalendar cal = new NonGregorianCalendar();
         cal.clear();
         cal.setTimeZone(UTC);
@@ -611,5 +857,13 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
      * #testDisplayNamesOnNonGregorianCalendar()}.
      */
     private static class NonGregorianCalendar extends GregorianCalendar {
+        NonGregorianCalendar() {
+            super();
+        }
+
+        NonGregorianCalendar(TimeZone timeZone, Locale locale) {
+            super(timeZone, locale);
+        }
     }
+
 }

@@ -35,7 +35,7 @@ import java.util.HashSet;
 import java.util.Set;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
-import libcore.util.SerializationTester;
+import libcore.libcore.util.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -189,6 +189,20 @@ public class InetAddressTest {
     @Test
     public void test_isNumeric(String valid) throws Exception {
         assertTrue(InetAddress.isNumeric(valid));
+    }
+
+    @Test
+    public void test_isNumeric_notNumeric_null() throws Exception {
+        try {
+            boolean result = InetAddress.isNumeric(null);
+            fail("Expected isNumeric(null) to throw a NPE but instead returned " + result);
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    @Test
+    public void test_isNumeric_notNumeric_empty() throws Exception {
+        assertFalse(InetAddress.isNumeric(""));
     }
 
     @Test

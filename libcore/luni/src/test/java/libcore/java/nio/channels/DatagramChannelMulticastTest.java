@@ -35,6 +35,7 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.MembershipKey;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.concurrent.TimeUnit;
 
 import libcore.io.IoBridge;
 
@@ -236,20 +237,19 @@ public class DatagramChannelMulticastTest extends TestCase {
         receiverChannel.join(group, networkInterface);
 
         String msg = "Hello World";
-        sendMulticastMessage(group, localAddress.getPort(), msg, networkInterface);
+        createChannelAndSendMulticastMessage(group, localAddress.getPort(), msg, networkInterface);
 
         // now verify that we received the data as expected
         ByteBuffer recvBuffer = ByteBuffer.allocate(100);
-        SocketAddress sourceAddress = receiverChannel.receive(recvBuffer);
-        assertNotNull(sourceAddress);
+        receiveExpectedDatagram(receiverChannel, recvBuffer);
         assertEquals(msg, new String(recvBuffer.array(), 0, recvBuffer.position()));
 
         // now verify that we didn't receive the second message
         String msg2 = "Hello World - Different Group";
-        sendMulticastMessage(group2, localAddress.getPort(), msg2, networkInterface);
+        createChannelAndSendMulticastMessage(
+                group2, localAddress.getPort(), msg2, networkInterface);
         recvBuffer.position(0);
-        SocketAddress sourceAddress2 = receiverChannel.receive(recvBuffer);
-        assertNull(sourceAddress2);
+        checkNoDatagramReceived(receiverChannel);
 
         receiverChannel.close();
     }
@@ -361,16 +361,16 @@ public class DatagramChannelMulticastTest extends TestCase {
             // Now send out a package on sendingInterface. We should only see the packet if we send
             // it on the same interface we are listening on (thisInterface).
             String msg = "Hello World - Again" + thisInterface.getName();
-            sendMulticastMessage(group, localAddress.getPort(), msg, sendingInterface);
+            createChannelAndSendMulticastMessage(
+                    group, localAddress.getPort(), msg, sendingInterface);
 
             ByteBuffer recvBuffer = ByteBuffer.allocate(100);
-            SocketAddress sourceAddress = dc.receive(recvBuffer);
             if (thisInterface.equals(sendingInterface)) {
+                receiveExpectedDatagram(dc, recvBuffer);
                 assertEquals(msg, new String(recvBuffer.array(), 0, recvBuffer.position()));
             } else {
-                assertNull(sourceAddress);
+                checkNoDatagramReceived(dc);
             }
-
             dc.close();
         }
     }
@@ -454,8 +454,7 @@ public class DatagramChannelMulticastTest extends TestCase {
 
         // receive the datagram
         ByteBuffer recvBuffer = ByteBuffer.allocate(100);
-        SocketAddress sourceAddress = dc.receive(recvBuffer);
-        assertNotNull(sourceAddress);
+        receiveExpectedDatagram(dc, recvBuffer);
 
         String recvMessage = new String(recvBuffer.array(), 0, recvBuffer.position());
         assertEquals(message, recvMessage);
@@ -468,8 +467,7 @@ public class DatagramChannelMulticastTest extends TestCase {
         ByteBuffer sendBuffer2 = ByteBuffer.wrap(sendData);
         dc.send(sendBuffer2, new InetSocketAddress(group, localAddress.getPort()));
 
-        SocketAddress sourceAddress2 = dc.receive(recvBuffer);
-        assertNull(sourceAddress2);
+        checkNoDatagramReceived(dc);
 
         dc.close();
     }
@@ -785,11 +783,13 @@ public class DatagramChannelMulticastTest extends TestCase {
 
         ByteBuffer receiveBuffer = ByteBuffer.allocate(10);
 
+        BindableChannel channel = new BindableChannel(sendingChannel, networkInterface);
+
         // Send a message. It should be received.
         String msg1 = "Hello1";
-        sendMessage(sendingChannel, msg1, groupSocketAddress);
+        channel.sendMulticastMessage(msg1, groupSocketAddress);
         IoBridge.poll(receivingChannel.socket().getFileDescriptor$(), POLLIN, 1000);
-        InetSocketAddress sourceAddress1 = (InetSocketAddress) receivingChannel.receive(receiveBuffer);
+        InetSocketAddress sourceAddress1 = (InetSocketAddress) receiveExpectedDatagram(receivingChannel, receiveBuffer);
         assertEquals(sourceAddress1, sendingAddress);
         assertEquals(msg1, new String(receiveBuffer.array(), 0, receiveBuffer.position()));
 
@@ -798,24 +798,24 @@ public class DatagramChannelMulticastTest extends TestCase {
 
         // Send a message. It should be filtered.
         String msg2 = "Hello2";
-        sendMessage(sendingChannel, msg2, groupSocketAddress);
+        channel.sendMulticastMessage(msg2, groupSocketAddress);
         try {
             IoBridge.poll(receivingChannel.socket().getFileDescriptor$(), POLLIN, 1000);
             fail();
         } catch (SocketTimeoutException expected) { }
         receiveBuffer.position(0);
-        InetSocketAddress sourceAddress2 = (InetSocketAddress) receivingChannel.receive(receiveBuffer);
-        assertNull(sourceAddress2);
+        checkNoDatagramReceived(receivingChannel);
 
         // Now unblock the sender
         membershipKey.unblock(sendingAddress.getAddress());
 
         // Send a message. It should be received.
         String msg3 = "Hello3";
-        sendMessage(sendingChannel, msg3, groupSocketAddress);
+        channel.sendMulticastMessage(msg3, groupSocketAddress);
         IoBridge.poll(receivingChannel.socket().getFileDescriptor$(), POLLIN, 1000);
         receiveBuffer.position(0);
-        InetSocketAddress sourceAddress3 = (InetSocketAddress) receivingChannel.receive(receiveBuffer);
+        InetSocketAddress sourceAddress3 =
+                (InetSocketAddress) receiveExpectedDatagram(receivingChannel, receiveBuffer);
         assertEquals(sourceAddress3, sendingAddress);
         assertEquals(msg3, new String(receiveBuffer.array(), 0, receiveBuffer.position()));
 
@@ -1089,11 +1089,12 @@ public class DatagramChannelMulticastTest extends TestCase {
                 .join(groupSocketAddress.getAddress(), networkInterface, senderBindAddress);
 
         ByteBuffer receiveBuffer = ByteBuffer.allocate(10);
-
+        BindableChannel channel = new BindableChannel(sendingChannel, networkInterface);
         // Send a message. It should be received.
         String msg1 = "Hello1";
-        sendMessage(sendingChannel, msg1, groupSocketAddress);
-        InetSocketAddress sourceAddress1 = (InetSocketAddress) receivingChannel.receive(receiveBuffer);
+        channel.sendMulticastMessage(msg1, groupSocketAddress);
+        InetSocketAddress sourceAddress1 =
+                (InetSocketAddress) receiveExpectedDatagram(receivingChannel, receiveBuffer);
         assertEquals(sourceAddress1, sendingAddress);
         assertEquals(msg1, new String(receiveBuffer.array(), 0, receiveBuffer.position()));
 
@@ -1103,9 +1104,8 @@ public class DatagramChannelMulticastTest extends TestCase {
 
         // Send a message. It should not be received.
         String msg2 = "Hello2";
-        sendMessage(sendingChannel, msg2, groupSocketAddress);
-        InetSocketAddress sourceAddress2 = (InetSocketAddress) receivingChannel.receive(receiveBuffer);
-        assertNull(sourceAddress2);
+        channel.sendMulticastMessage(msg2, groupSocketAddress);
+        checkNoDatagramReceived(receivingChannel);
 
         receivingChannel.close();
         sendingChannel.close();
@@ -1208,13 +1208,68 @@ public class DatagramChannelMulticastTest extends TestCase {
 
     private static void configureChannelForReceiving(DatagramChannel receivingChannel)
             throws Exception {
-
-        // NOTE: At the time of writing setSoTimeout() has no effect in the RI, making these tests hang
-        // if the channel is in blocking mode. configureBlocking(false) is used instead and rely on the
-        // network to the local host being instantaneous.
-        // receivingChannel.socket().setSoTimeout(200);
-        // receivingChannel.configureBlocking(true);
+        /* NOTE: At the time of writing setSoTimeout() has no effect in the RI, making
+         * these tests hang if the channel is in blocking mode.
+         *
+         * Therefore this test instead uses configureBlocking(false) together with
+         * {@link #receiveWithTimeout} to do our own blocking.
+         */
         receivingChannel.configureBlocking(false);
+    }
+
+    /**
+     * Asserts that a datagram is received from the supplied {@code receivingChannel}
+     * when {@link #receiveWithTimeout(DatagramChannel, ByteBuffer, long) polling}
+     * with a short timeout.
+     */
+    private static SocketAddress receiveExpectedDatagram(DatagramChannel receivingChannel,
+            ByteBuffer byteBuffer) throws InterruptedException, IOException {
+        long timeoutMillis = 50L;
+        SocketAddress result = receiveWithTimeout(receivingChannel, byteBuffer, timeoutMillis);
+        assertNotNull("Expected Datagram, but none received after " + timeoutMillis + " msec",
+                result);
+        return result;
+    }
+
+    /**
+     * Asserts that no datagram is received from the supplied {@code receivingChannel}
+     * when {@link #receiveWithTimeout(DatagramChannel, ByteBuffer, long) polling}
+     * with a moderate timeout.
+     */
+    private static void checkNoDatagramReceived(DatagramChannel receivingChannel)
+            throws InterruptedException, IOException {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(100);
+        long startMillis = System.currentTimeMillis();
+        SocketAddress result = receiveWithTimeout(receivingChannel, byteBuffer, 1000L);
+        long elapsed = System.currentTimeMillis() - startMillis;
+        assertNull("Datagram unexpectedly received after " + elapsed + " msec", result);
+    }
+
+    /**
+     * Receives a datagram from {@code receivingChannel} and writes the datagram content
+     * into {@code byteBuffer}.
+     * This method polls periodically until it finds that either a datagram was received,
+     * or the indicated timeout has expired.
+     *
+     * @return the received datagram's source address, or null if no datagram was received
+     *         before the timeout was found to have expired.
+     */
+    private static SocketAddress receiveWithTimeout(DatagramChannel receivingChannel,
+            ByteBuffer byteBuffer, long timeoutMillis) throws InterruptedException, IOException {
+        long endTimeMillis = System.currentTimeMillis() + timeoutMillis;
+        SocketAddress result;
+        while (true) {
+            result = receivingChannel.receive(byteBuffer);
+            if (result != null) {
+                break;
+            }
+            long remainingMillis = endTimeMillis - System.currentTimeMillis();
+            if (remainingMillis <= 0) {
+                break;
+            }
+            Thread.sleep(Math.min(20L, remainingMillis + 1));
+        }
+        return result;
     }
 
     private static boolean willWorkForMulticast(NetworkInterface iface) throws IOException {
@@ -1225,26 +1280,41 @@ public class DatagramChannelMulticastTest extends TestCase {
                 && iface.getInetAddresses().hasMoreElements();
     }
 
-    private static void sendMulticastMessage(
+    private static void createChannelAndSendMulticastMessage(
             InetAddress group, int port, String msg, NetworkInterface sendingInterface)
             throws IOException {
         // Any datagram socket can send to a group. It does not need to have joined the group.
         DatagramChannel dc = DatagramChannel.open();
-        if (sendingInterface != null) {
-            // For some reason, if set, this must be set to a real (non-loopback) device for an IPv6
-            // group, but can be loopback for an IPv4 group.
-            dc.setOption(StandardSocketOptions.IP_MULTICAST_IF, sendingInterface);
-        }
-        sendMessage(dc, msg, new InetSocketAddress(group, port));
+        BindableChannel channel = new BindableChannel(dc, sendingInterface);
+        channel.sendMulticastMessage(msg, new InetSocketAddress(group, port));
         dc.close();
     }
 
-    private static void sendMessage(
-            DatagramChannel sendingChannel, String msg, InetSocketAddress targetAddress)
-            throws IOException {
+    /**
+     * A {@link DatagramChannel} which is optionally bound to a {@link NetworkInterface}.
+     */
+    static class BindableChannel {
+        private final DatagramChannel datagramChannel;
 
-        ByteBuffer sendBuffer = ByteBuffer.wrap(msg.getBytes());
-        sendingChannel.send(sendBuffer, targetAddress);
+        /**
+         * @param networkInterface The interface to bind {@code datagramChannel} to, or null to
+         *        not bind.
+         */
+        public BindableChannel(DatagramChannel datagramChannel, NetworkInterface networkInterface)
+                throws IOException {
+            this.datagramChannel = datagramChannel;
+            if (networkInterface != null) {
+                // For some reason, if set, this must be set to a real (non-loopback) device for
+                // an IPv6 group, but can be loopback for an IPv4 group.
+                datagramChannel.setOption(StandardSocketOptions.IP_MULTICAST_IF, networkInterface);
+            }
+        }
+
+        public void sendMulticastMessage(String msg, InetSocketAddress targetGroupSocketAddress)
+                throws IOException {
+            ByteBuffer sendBuffer = ByteBuffer.wrap(msg.getBytes());
+            datagramChannel.send(sendBuffer, targetGroupSocketAddress);
+        }
     }
 
     private static InetAddress getLocalIpv4Address(NetworkInterface networkInterface) {

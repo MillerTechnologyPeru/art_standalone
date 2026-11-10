@@ -186,8 +186,10 @@ collapse(char *path)
    work, though once that's done we still must collapse any remaining "." and
    ".." names by hand. */
 
+// Android-changed: hidden to avoid conflict with libm (b/135018555)
+__attribute__((visibility("hidden")))
 int
-JDK_canonicalize(char *original, char *resolved, int len)
+canonicalize(char *original, char *resolved, int len)
 {
     if (len < PATH_MAX) {
         errno = EINVAL;

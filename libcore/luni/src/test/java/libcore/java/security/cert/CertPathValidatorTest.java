@@ -32,24 +32,44 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import com.android.org.bouncycastle.asn1.x509.CRLReason;
-import com.android.org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import com.android.org.bouncycastle.cert.X509CertificateHolder;
-import com.android.org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
-import com.android.org.bouncycastle.cert.ocsp.BasicOCSPResp;
-import com.android.org.bouncycastle.cert.ocsp.BasicOCSPRespBuilder;
-import com.android.org.bouncycastle.cert.ocsp.CertificateID;
-import com.android.org.bouncycastle.cert.ocsp.CertificateStatus;
-import com.android.org.bouncycastle.cert.ocsp.OCSPResp;
-import com.android.org.bouncycastle.cert.ocsp.OCSPRespBuilder;
-import com.android.org.bouncycastle.cert.ocsp.RevokedStatus;
-import com.android.org.bouncycastle.operator.DigestCalculatorProvider;
-import com.android.org.bouncycastle.operator.bc.BcDigestCalculatorProvider;
-import com.android.org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import junit.framework.TestCase;
 import libcore.java.security.TestKeyStore;
+import org.bouncycastle.asn1.x509.CRLReason;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
+import org.bouncycastle.cert.ocsp.BasicOCSPResp;
+import org.bouncycastle.cert.ocsp.BasicOCSPRespBuilder;
+import org.bouncycastle.cert.ocsp.CertificateID;
+import org.bouncycastle.cert.ocsp.CertificateStatus;
+import org.bouncycastle.cert.ocsp.OCSPResp;
+import org.bouncycastle.cert.ocsp.OCSPRespBuilder;
+import org.bouncycastle.cert.ocsp.RevokedStatus;
+import org.bouncycastle.operator.DigestCalculatorProvider;
+import org.bouncycastle.operator.bc.BcDigestCalculatorProvider;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
 
 public class CertPathValidatorTest extends TestCase {
+
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
+
     private OCSPResp generateOCSPResponse(X509Certificate serverCertJca, X509Certificate caCertJca,
             PrivateKey caKey, CertificateStatus status) throws Exception {
         X509CertificateHolder caCert = new JcaX509CertificateHolder(caCertJca);

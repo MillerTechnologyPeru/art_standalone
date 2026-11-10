@@ -27,23 +27,30 @@
 package java.lang.reflect;
 
 
+import dalvik.annotation.optimization.FastNative;
+import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
+import java.security.Permission;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
-
-import dalvik.annotation.optimization.FastNative;
 import libcore.util.EmptyArray;
 import sun.reflect.CallerSensitive;
+import sun.reflect.misc.ReflectUtil;
+import sun.security.util.SecurityConstants;
 
 /**
  * {@code Proxy} provides static methods for creating dynamic proxy

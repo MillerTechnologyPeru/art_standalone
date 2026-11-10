@@ -16,6 +16,7 @@
 
 package dalvik.system;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import dalvik.annotation.optimization.FastNative;
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -31,11 +32,13 @@ import java.util.Map;
  *
  * @hide
  */
+@libcore.api.CorePlatformApi
 public final class VMDebug {
     /**
      * flag for startMethodTracing(), which adds the results from
      * startAllocCounting to the trace key file.
      */
+    @libcore.api.CorePlatformApi
     public static final int TRACE_COUNT_ALLOCS = 1;
 
     /* constants for getAllocCount */
@@ -51,18 +54,25 @@ public final class VMDebug {
     private static final int KIND_EXT_FREED_OBJECTS     = 1<<14;
     private static final int KIND_EXT_FREED_BYTES       = 1<<15;
 
+    @libcore.api.CorePlatformApi
     public static final int KIND_GLOBAL_ALLOCATED_OBJECTS =
         KIND_ALLOCATED_OBJECTS;
+    @libcore.api.CorePlatformApi
     public static final int KIND_GLOBAL_ALLOCATED_BYTES =
         KIND_ALLOCATED_BYTES;
+    @libcore.api.CorePlatformApi
     public static final int KIND_GLOBAL_FREED_OBJECTS =
         KIND_FREED_OBJECTS;
+    @libcore.api.CorePlatformApi
     public static final int KIND_GLOBAL_FREED_BYTES =
         KIND_FREED_BYTES;
+    @libcore.api.CorePlatformApi
     public static final int KIND_GLOBAL_GC_INVOCATIONS =
         KIND_GC_INVOCATIONS;
+    @libcore.api.CorePlatformApi
     public static final int KIND_GLOBAL_CLASS_INIT_COUNT =
         KIND_CLASS_INIT_COUNT;
+    @libcore.api.CorePlatformApi
     public static final int KIND_GLOBAL_CLASS_INIT_TIME =
         KIND_CLASS_INIT_TIME;
     public static final int KIND_GLOBAL_EXT_ALLOCATED_OBJECTS =
@@ -74,14 +84,17 @@ public final class VMDebug {
     public static final int KIND_GLOBAL_EXT_FREED_BYTES =
         KIND_EXT_FREED_BYTES;
 
+    @libcore.api.CorePlatformApi
     public static final int KIND_THREAD_ALLOCATED_OBJECTS =
         KIND_ALLOCATED_OBJECTS << 16;
+    @libcore.api.CorePlatformApi
     public static final int KIND_THREAD_ALLOCATED_BYTES =
         KIND_ALLOCATED_BYTES << 16;
     public static final int KIND_THREAD_FREED_OBJECTS =
         KIND_FREED_OBJECTS << 16;
     public static final int KIND_THREAD_FREED_BYTES =
         KIND_FREED_BYTES << 16;
+    @libcore.api.CorePlatformApi
     public static final int KIND_THREAD_GC_INVOCATIONS =
         KIND_GC_INVOCATIONS << 16;
     public static final int KIND_THREAD_CLASS_INIT_COUNT =
@@ -97,6 +110,7 @@ public final class VMDebug {
     public static final int KIND_THREAD_EXT_FREED_BYTES =
         KIND_EXT_FREED_BYTES << 16;
 
+    @libcore.api.CorePlatformApi
     public static final int KIND_ALL_COUNTS = 0xffffffff;
 
     /* all methods are static */
@@ -107,6 +121,7 @@ public final class VMDebug {
      *
      * @return the time in milliseconds, or -1 if the debugger is not connected
      */
+    @libcore.api.CorePlatformApi
     @FastNative
     public static native long lastDebuggerActivity();
 
@@ -116,6 +131,7 @@ public final class VMDebug {
      *
      * @return true if debugging is enabled
      */
+    @libcore.api.CorePlatformApi
     @FastNative
     public static native boolean isDebuggingEnabled();
 
@@ -124,6 +140,8 @@ public final class VMDebug {
      *
      * @return true if (and only if) a debugger is connected
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     @FastNative
     public static native boolean isDebuggerConnected();
 
@@ -132,6 +150,7 @@ public final class VMDebug {
      * used by DDMS to determine what sorts of operations the VM can
      * perform.
      */
+    @libcore.api.CorePlatformApi
     public static native String[] getVmFeatureList();
 
     /**
@@ -167,6 +186,7 @@ public final class VMDebug {
      * @param intervalUs the time between samples in microseconds when
      * sampling is enabled.
      */
+    @libcore.api.CorePlatformApi
     public static void startMethodTracing(String traceFileName, int bufferSize, int flags, boolean samplingEnabled, int intervalUs) {
         startMethodTracingFilename(traceFileName, checkBufferSize(bufferSize), flags, samplingEnabled, intervalUs);
     }
@@ -188,6 +208,7 @@ public final class VMDebug {
      * supplied simply for logging.  Makes a dup of the file descriptor.
      * Streams tracing data to the file if streamingOutput is true.
      */
+    @libcore.api.CorePlatformApi
     public static void startMethodTracing(String traceFileName, FileDescriptor fd, int bufferSize,
                                           int flags, boolean samplingEnabled, int intervalUs,
                                           boolean streamingOutput) {
@@ -203,6 +224,7 @@ public final class VMDebug {
      * is called, the result is sent directly to DDMS.  (If DDMS is not
      * attached when tracing ends, the profiling data will be discarded.)
      */
+    @libcore.api.CorePlatformApi
     public static void startMethodTracingDdms(int bufferSize, int flags, boolean samplingEnabled, int intervalUs) {
         startMethodTracingDdmsImpl(checkBufferSize(bufferSize), flags, samplingEnabled, intervalUs);
     }
@@ -219,28 +241,33 @@ public final class VMDebug {
     }
 
     private static native void startMethodTracingDdmsImpl(int bufferSize, int flags, boolean samplingEnabled, int intervalUs);
-    private static native void startMethodTracingFd(String traceFileName, int fd, int bufferSize, int flags, boolean samplingEnabled, int intervalUs, boolean streamingOutput);
+    private static native void startMethodTracingFd(String traceFileName, int fd, int bufferSize,
+            int flags, boolean samplingEnabled, int intervalUs, boolean streamingOutput);
     private static native void startMethodTracingFilename(String traceFileName, int bufferSize, int flags, boolean samplingEnabled, int intervalUs);
 
     /**
      * Determine whether method tracing is currently active and what type is
      * active.
      */
+    @libcore.api.CorePlatformApi
     public static native int getMethodTracingMode();
 
     /**
      * Stops method tracing.
      */
+    @libcore.api.CorePlatformApi
     public static native void stopMethodTracing();
 
     /**
      * Starts sending Dalvik method trace info to the emulator.
      */
+    @libcore.api.CorePlatformApi
     public static native void startEmulatorTracing();
 
     /**
      * Stops sending Dalvik method trace info to the emulator.
      */
+    @libcore.api.CorePlatformApi
     public static native void stopEmulatorTracing();
 
     /**
@@ -255,6 +282,7 @@ public final class VMDebug {
      * @return the CPU usage. A value of -1 means the system does not support
      *         this feature.
      */
+    @libcore.api.CorePlatformApi
     @FastNative
     public static native long threadCpuTimeNanos();
 
@@ -262,9 +290,13 @@ public final class VMDebug {
      * Count the number and aggregate size of memory allocations between
      * two points.
      */
+    @libcore.api.CorePlatformApi
     public static native void startAllocCounting();
+    @libcore.api.CorePlatformApi
     public static native void stopAllocCounting();
+    @libcore.api.CorePlatformApi
     public static native int getAllocCount(int kind);
+    @libcore.api.CorePlatformApi
     public static native void resetAllocCount(int kinds);
 
     /**
@@ -296,6 +328,7 @@ public final class VMDebug {
     /**
      * Dumps a list of loaded class to the log file.
      */
+    @libcore.api.CorePlatformApi
     @FastNative
     public static native void printLoadedClasses(int flags);
 
@@ -304,6 +337,7 @@ public final class VMDebug {
      *
      * @return the number of loaded classes
      */
+    @libcore.api.CorePlatformApi
     @FastNative
     public static native int getLoadedClassCount();
 
@@ -317,6 +351,7 @@ public final class VMDebug {
      *         HPROF support.
      * @throws IOException if an error occurs while opening or writing files.
      */
+    @libcore.api.CorePlatformApi
     public static void dumpHprofData(String filename) throws IOException {
         if (filename == null) {
             throw new NullPointerException("filename == null");
@@ -330,6 +365,7 @@ public final class VMDebug {
      * @throws UnsupportedOperationException if the VM was built without
      *         HPROF support.
      */
+    @libcore.api.CorePlatformApi
     public static native void dumpHprofDataDdms();
 
     /**
@@ -340,9 +376,10 @@ public final class VMDebug {
      * @param fd Descriptor of open file that will receive the output.
      *        If this is null, the fileName is used instead.
      */
+    @libcore.api.CorePlatformApi
     public static void dumpHprofData(String fileName, FileDescriptor fd)
             throws IOException {
-        dumpHprofData(fileName, fd != null ? fd.getInt$() : -1);
+       dumpHprofData(fileName, fd != null ? fd.getInt$() : -1);
     }
 
     private static native void dumpHprofData(String fileName, int fd)
@@ -351,12 +388,15 @@ public final class VMDebug {
     /**
      * Primes the register map cache.
      */
+    @libcore.api.CorePlatformApi
     public static native boolean cacheRegisterMap(String classAndMethodDesc);
 
     /**
      * Dumps the contents of the VM reference tables (e.g. JNI locals and
      * globals) to the log file.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static native void dumpReferenceTables();
 
     /**
@@ -392,12 +432,13 @@ public final class VMDebug {
      * objects to get counted.
      *
      * @param klass the class to be counted.
-     * @param assignable if false, direct instances of klass are
-     *                   counted.  If true, instances that are
-     *                   assignable to klass, as defined by
-     *                   {@link Class#isAssignableFrom} are counted.
+     * @param assignable if true, any instance whose class is assignable to
+     *                   <code>klass</code>, as defined by {@link Class#isAssignableFrom},
+     *                   is counted. If false, only instances whose class is
+     *                   equal to <code>klass</code> are counted.
      * @return the number of matching instances.
      */
+    @libcore.api.CorePlatformApi
     public static native long countInstancesOfClass(Class klass, boolean assignable);
 
     /**
@@ -406,15 +447,31 @@ public final class VMDebug {
      * objects to get counted.
      *
      * @param classes the classes to be counted.
-     * @param assignable if false, direct instances of klass are
-     *                   counted.  If true, instances that are
-     *                   assignable to klass, as defined by
-     *                   {@link Class#isAssignableFrom} are counted.
-     * @return an array containing the number of matching instances. The value for
-     * an index is the number of instances of the class at that index in number classes.
+     * @param assignable if true, any instance whose class is assignable to
+     *                   <code>classes[i]</code>, as defined by {@link Class#isAssignableFrom},
+     *                   is counted. If false, only instances whose class is
+     *                   equal to <code>classes[i]</code> are counted.
+     * @return an array containing the number of matching instances. The value
+     *         for index <code>i</code> is the number of instances of
+     *         the class <code>classes[i]</code>
      */
+    @libcore.api.CorePlatformApi
     public static native long[] countInstancesOfClasses(Class[] classes, boolean assignable);
 
+    /**
+     * Gets instances of classes on the Java heap.
+     * It is the caller's responsibility to do GC if they don't want unreachable
+     * objects to be included.
+     *
+     * @param classes the classes to get instances of.
+     * @param assignable if true, any instance whose class is assignable to
+     *                   <code>classes[i]</code>, as defined by {@link Class#isAssignableFrom},
+     *                   is included. If false, only instances whose class is
+     *                   equal to <code>classes[i]</code> are included.
+     * @return an array containing the list of matching instances. The value
+     *         for index <code>i</code> is an array containing the instances
+     *         of the class <code>classes[i]</code>
+     */
     public static native Object[][] getInstancesOfClasses(Class[] classes, boolean assignable);
 
     /**
@@ -460,6 +517,7 @@ public final class VMDebug {
      *            the name of the runtime statistic to look up.
      * @return the value of the runtime statistic.
      */
+    @libcore.api.CorePlatformApi
     public static String getRuntimeStat(String statName) {
         if (statName == null) {
             throw new NullPointerException("statName == null");
@@ -477,6 +535,7 @@ public final class VMDebug {
      *
      * @return a map of the names/values of the supported runtime statistics.
      */
+    @libcore.api.CorePlatformApi
     public static Map<String, String> getRuntimeStats() {
         HashMap<String, String> map = new HashMap<>();
         String[] values = getRuntimeStatsInternal();
@@ -497,13 +556,41 @@ public final class VMDebug {
      * @param agent The path to the agent .so file plus optional agent arguments.
      */
     public static void attachAgent(String agent) throws IOException {
-        nativeAttachAgent(agent, null);
+        attachAgent(agent, null);
+    }
+
+    /**
+     * Attaches an agent to the VM.
+     *
+     * @param agent The path to the agent .so file plus optional agent arguments.
+     * @param classLoader The classloader to use as a loading context.
+     */
+    @libcore.api.CorePlatformApi
+    public static void attachAgent(String agent, ClassLoader classLoader) throws IOException {
+        nativeAttachAgent(agent, classLoader);
     }
 
     private static native void nativeAttachAgent(String agent, ClassLoader classLoader)
             throws IOException;
 
+    /**
+     * Exempts a class from any future non-SDK API access checks.
+     * Methods declared in the class will be allowed to perform
+     * reflection/JNI against the framework completely unrestricted.
+     * Note that this does not affect uses of non-SDK APIs that the class links against.
+     * Note that this does not affect methods declared outside this class, e.g.
+     * inherited from a superclass or an implemented interface.
+     *
+     * @param klass The class whose methods should be exempted.
+     */
+    @UnsupportedAppUsage
     public static native void allowHiddenApiReflectionFrom(Class<?> klass);
 
+    /**
+     * Sets the number of frames recorded for allocation tracking.
+     *
+     * @param stackDepth The number of frames captured for each stack trace.
+     */
+    @libcore.api.CorePlatformApi
     public static native void setAllocTrackerStackDepth(int stackDepth);
 }

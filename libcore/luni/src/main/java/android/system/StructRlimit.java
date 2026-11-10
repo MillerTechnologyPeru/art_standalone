@@ -24,16 +24,18 @@ import libcore.util.Objects;
  *
  * @hide
  */
+@libcore.api.CorePlatformApi
 public final class StructRlimit {
-  public final long rlim_cur;
-  public final long rlim_max;
+    @libcore.api.CorePlatformApi
+    public final long rlim_cur;
+    public final long rlim_max;
 
-  public StructRlimit(long rlim_cur, long rlim_max) {
-    this.rlim_cur = rlim_cur;
-    this.rlim_max = rlim_max;
-  }
+    public StructRlimit(long rlim_cur, long rlim_max) {
+        this.rlim_cur = rlim_cur;
+        this.rlim_max = rlim_max;
+    }
 
-  @Override public String toString() {
-    return Objects.toString(this);
-  }
+    @Override public String toString() {
+        return Objects.toString(this);
+    }
 }

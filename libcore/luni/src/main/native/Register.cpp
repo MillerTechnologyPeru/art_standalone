@@ -18,10 +18,11 @@
 
 #include <stdlib.h>
 
-#include "log/log.h"
-
-#include <nativehelper/JniConstants.h>
+#include <log/log.h>
+#include <nativehelper/JNIHelp.h>
 #include <nativehelper/ScopedLocalFrame.h>
+
+#include "JniConstants.h"
 
 // DalvikVM calls this on startup, so we can statically register all our native methods.
 jint JNI_OnLoad(JavaVM* vm, void*) {
@@ -37,6 +38,8 @@ jint JNI_OnLoad(JavaVM* vm, void*) {
     REGISTER(register_android_system_OsConstants);
     //    REGISTER(register_java_lang_StringToReal);
     REGISTER(register_java_lang_invoke_MethodHandle);
+    REGISTER(register_java_lang_invoke_VarHandle);
+    REGISTER(register_java_math_NativeBN);
     REGISTER(register_java_util_regex_Matcher);
     REGISTER(register_java_util_regex_Pattern);
     REGISTER(register_libcore_icu_ICU);
@@ -51,25 +54,19 @@ jint JNI_OnLoad(JavaVM* vm, void*) {
     REGISTER(register_sun_misc_Unsafe);
 #undef REGISTER
 
+    JniConstants::Initialize(env);
     return JNI_VERSION_1_6;
 }
 
-// DalvikVM calls this on shutdown, do any global cleanup here.
-// -- Very important if we restart multiple DalvikVMs in the same process to reset the state.
-void JNI_OnUnload(JavaVM* vm, void*) {
-    JNIEnv* env;
-    // The runtime unloads libraries as it shuts down, from a thread that may
-    // no longer be attached; with the process ending there is nothing left
-    // to clean up then.
-    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-        ALOGV("libjavacore JNI_OnUnload: no JNIEnv on this thread, nothing to unregister");
-        return;
-    }
+// ART calls this on shutdown, do any global cleanup here.
+// -- Very important if we restart multiple ART runtimes in the same process to reset the state.
+void JNI_OnUnload(JavaVM*, void*) {
+    // Don't use the JavaVM in this method. ART only calls this once all threads are
+    // unregistered.
     ALOGV("libjavacore JNI_OnUnload");
-
-    ScopedLocalFrame localFrame(env);
-
-#define UNREGISTER(FN) extern void FN(JNIEnv*); FN(env)
+#define UNREGISTER(FN) extern void FN(); FN()
     UNREGISTER(unregister_libcore_icu_ICU);
 #undef UNREGISTER
+    JniConstants::Invalidate();
+    jniUninitializeConstants();
 }

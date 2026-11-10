@@ -32,13 +32,12 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.security.AccessController;
 import java.nio.file.Path;
 import java.nio.file.FileSystems;
 import sun.security.action.GetPropertyAction;
 
+// Android-added: Info about UTF-8 usage in filenames.
 /**
  * An abstract representation of file and directory pathnames.
  *
@@ -323,9 +322,11 @@ public class File
         if (child == null) {
             throw new NullPointerException();
         }
+        // BEGIN Android-changed: b/25859957, app-compat; don't substitute empty parent.
         if (parent != null && !parent.isEmpty()) {
             this.path = fs.resolve(fs.normalize(parent),
                                    fs.normalize(child));
+        // END Android-changed: b/25859957, app-compat; don't substitute empty parent.
         } else {
             this.path = fs.normalize(child);
         }
@@ -517,6 +518,7 @@ public class File
 
     /* -- Path operations -- */
 
+    // Android-changed: Android-specific path information
     /**
      * Tests whether this abstract pathname is absolute.  The definition of
      * absolute pathname is system dependent.  On Android, absolute paths start with
@@ -529,6 +531,7 @@ public class File
         return fs.isAbsolute(this);
     }
 
+    // Android-changed: Android-specific path information
     /**
      * Returns the absolute path of this file. An absolute path is a path that starts at a root
      * of the file system. On Android, there is only one root: {@code /}.
@@ -673,6 +676,8 @@ public class File
         if (isInvalid()) {
             throw new MalformedURLException("Invalid file path");
         }
+        // Android-changed: Fix for new File("").toURL().
+        // return new URL("file", "", slashify(getAbsolutePath(), isDirectory()));
         return new URL("file", "", slashify(getAbsolutePath(),
                 getAbsoluteFile().isDirectory()));
     }
@@ -785,17 +790,6 @@ public class File
         return fs.checkAccess(this, FileSystem.ACCESS_WRITE);
     }
 
-    /* ATL hack: File.exists() always returns true for these files */
-    private static final Collection<String> spoof_files = Arrays.asList(
-        "/system/lib/libdl.so",
-        "/system/lib/libc.so",
-        "/system/lib/libjnigraphics.so",
-        "/system/lib/libm.so",
-        "/system/lib/libOpenSLES.so",
-        "/system/lib/libGLESv2.so",
-        "/system/lib/libz.so",
-        "/system/lib/liblog.so");
-
     /**
      * Tests whether the file or directory denoted by this abstract pathname
      * exists.
@@ -816,12 +810,8 @@ public class File
         if (isInvalid()) {
             return false;
         }
-        /* ATL hack: spoof existence of some system libraries. This is necessary, for example, for apps that
-         * use Facebook's SOLoader, which tries to resolve native library dependencies on its own. */
-        if (spoof_files.contains(path)) {
-            return true;
-        }
 
+        // Android-changed: b/25878034 work around SELinux stat64 denial.
         return fs.checkAccess(this, FileSystem.ACCESS_OK);
     }
 
@@ -1047,6 +1037,7 @@ public class File
         return fs.delete(this);
     }
 
+    // Android-added: Additional information about Android behaviour.
     /**
      * Requests that the file or directory denoted by this abstract
      * pathname be deleted when the virtual machine terminates.
@@ -1373,6 +1364,7 @@ public class File
                 canonFile.mkdir());
     }
 
+    // Android-changed: Replaced generic platform info with Android specific one.
     /**
      * Renames the file denoted by this abstract pathname.
      *
@@ -1459,7 +1451,7 @@ public class File
     }
 
     // Android-changed. Removed javadoc comment about special privileges
-    // that doesn't make sense on android
+    // that doesn't make sense on Android.
     /**
      * Marks the file or directory named by this abstract pathname so that
      * only read operations are allowed. After invoking this method the file
@@ -1489,7 +1481,7 @@ public class File
     }
 
     // Android-changed. Removed javadoc comment about special privileges
-    // that doesn't make sense on android
+    // that doesn't make sense on Android.
     /**
      * Sets the owner's or everybody's write permission for this abstract
      * pathname.
@@ -1532,7 +1524,7 @@ public class File
     }
 
     // Android-changed. Removed javadoc comment about special privileges
-    // that doesn't make sense on android
+    // that doesn't make sense on Android.
     /**
      * A convenience method to set the owner's write permission for this abstract
      * pathname.
@@ -1563,7 +1555,7 @@ public class File
     }
 
     // Android-changed. Removed javadoc comment about special privileges
-    // that doesn't make sense on android
+    // that doesn't make sense on Android.
     /**
      * Sets the owner's or everybody's read permission for this abstract
      * pathname.
@@ -1609,7 +1601,7 @@ public class File
     }
 
     // Android-changed. Removed javadoc comment about special privileges
-    // that doesn't make sense on android
+    // that doesn't make sense on Android.
     /**
      * A convenience method to set the owner's read permission for this abstract
      * pathname.
@@ -1643,7 +1635,7 @@ public class File
     }
 
     // Android-changed. Removed javadoc comment about special privileges
-    // that doesn't make sense on android
+    // that doesn't make sense on Android.
     /**
      * Sets the owner's or everybody's execute permission for this abstract
      * pathname.
@@ -1689,7 +1681,7 @@ public class File
     }
 
     // Android-changed. Removed javadoc comment about special privileges
-    // that doesn't make sense on android
+    // that doesn't make sense on Android.
     /**
      * A convenience method to set the owner's execute permission for this
      * abstract pathname.
@@ -1723,7 +1715,7 @@ public class File
     }
 
     // Android-changed. Removed javadoc comment about special privileges
-    // that doesn't make sense on android
+    // that doesn't make sense on Android.
     /**
      * Tests whether the application can execute the file denoted by this
      * abstract pathname.
@@ -1752,7 +1744,7 @@ public class File
 
     /* -- Filesystem interface -- */
 
-
+    // Android-changed: Replaced generic platform info with Android specific one.
     /**
      * Returns the file system roots. On Android and other Unix systems, there is
      * a single root, {@code /}.
@@ -1829,6 +1821,7 @@ public class File
         return fs.getSpace(this, FileSystem.SPACE_FREE);
     }
 
+    // Android-added: Replaced generic platform info with Android specific one.
     /**
      * Returns the number of bytes available to this virtual machine on the
      * partition <a href="#partName">named</a> by this abstract pathname.  When
@@ -1876,18 +1869,22 @@ public class File
     }
 
     /* -- Temporary files -- */
+
     private static class TempDirectory {
         private TempDirectory() { }
 
         // Android-changed: Don't cache java.io.tmpdir value
-        // temporary directory location
-        // private static final File tmpdir = new File(AccessController
-        //     .doPrivileged(new GetPropertyAction("java.io.tmpdir")));
-        // static File location() {
-        //     return tmpdir;
-        // }
+        // temporary directory location.
+        /*
+        private static final File tmpdir = new File(AccessController
+           .doPrivileged(new GetPropertyAction("java.io.tmpdir")));
+        static File location() {
+            return tmpdir;
+        }
+        */
 
         // file name generation
+        // private static final SecureRandom random = new SecureRandom();
         static File generateFile(String prefix, String suffix, File dir)
             throws IOException
         {
@@ -1903,7 +1900,7 @@ public class File
 
             // Android-changed: Reject invalid file prefixes
             // Use only the file name from the supplied prefix
-            //prefix = (new File(prefix)).getName();
+            // prefix = (new File(prefix)).getName();
 
             String name = prefix + Long.toString(n) + suffix;
             File f = new File(dir, name);
@@ -1995,7 +1992,7 @@ public class File
         if (suffix == null)
             suffix = ".tmp";
 
-
+        // Android-changed: Handle java.io.tmpdir changes.
         File tmpdir = (directory != null) ? directory
                                           : new File(System.getProperty("java.io.tmpdir", "."));
         //SecurityManager sm = System.getSecurityManager();
@@ -2003,17 +2000,19 @@ public class File
         do {
             f = TempDirectory.generateFile(prefix, suffix, tmpdir);
 
-            // Android change: sm is always null on android
-            // if (sm != null) {
-            //     try {
-            //         sm.checkWrite(f.getPath());
-            //     } catch (SecurityException se) {
-            //         // don't reveal temporary directory location
-            //         if (directory == null)
-            //             throw new SecurityException("Unable to create temporary file");
-            //         throw se;
-            //     }
-            // }
+            // Android-changed: sm is always null on Android.
+            /*
+            if (sm != null) {
+                try {
+                    sm.checkWrite(f.getPath());
+                } catch (SecurityException se) {
+                    // don't reveal temporary directory location
+                    if (directory == null)
+                        throw new SecurityException("Unable to create temporary file");
+                    throw se;
+                }
+            }
+            */
         } while ((fs.getBooleanAttributes(f) & FileSystem.BA_EXISTS) != 0);
 
         if (!fs.createFileExclusively(f.getPath()))

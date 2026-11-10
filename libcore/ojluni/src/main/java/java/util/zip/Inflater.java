@@ -26,6 +26,7 @@
 
 package java.util.zip;
 
+import dalvik.annotation.optimization.ReachabilitySensitive;
 import dalvik.system.CloseGuard;
 
 /**
@@ -76,6 +77,12 @@ import dalvik.system.CloseGuard;
 public
 class Inflater {
 
+    // Android-added: @ReachabilitySensitive
+    // Finalization clears zsRef, and thus can't be allowed to occur early.
+    // Unlike some other CloseGuard uses, the spec allows clients to rely on finalization
+    // here.  Thus dropping a deflater without calling end() should work correctly.
+    // It thus does not suffice to just rely on the CloseGuard annotation.
+    @ReachabilitySensitive
     private final ZStreamRef zsRef;
     private byte[] buf = defaultBuf;
     private int off, len;
@@ -84,10 +91,19 @@ class Inflater {
     private long bytesRead;
     private long bytesWritten;
 
-    // Android-changed: added CloseGuard instance
+    // Android-added: CloseGuard support.
+    @ReachabilitySensitive
     private final CloseGuard guard = CloseGuard.get();
 
     private static final byte[] defaultBuf = new byte[0];
+
+    // Android-removed: initIDs handled in register method.
+    /*
+    static {
+        /* Zip library is loaded from System.initializeSystemClass *
+        initIDs();
+    }
+    */
 
     /**
      * Creates a new decompressor. If the parameter 'nowrap' is true then
@@ -102,7 +118,7 @@ class Inflater {
      */
     public Inflater(boolean nowrap) {
         zsRef = new ZStreamRef(init(nowrap));
-        // Android-changed: added close guard
+        // Android-added: CloseGuard support.
         guard.open("end");
     }
 
@@ -370,6 +386,7 @@ class Inflater {
      */
     public void end() {
         synchronized (zsRef) {
+            // Android-added: CloseGuard support.
             guard.close();
 
             long addr = zsRef.address();
@@ -385,7 +402,7 @@ class Inflater {
      * Closes the decompressor when garbage is collected.
      */
     protected void finalize() {
-        // Android-changed: added close guard
+        // Android-added: CloseGuard support.
         if (guard != null) {
             guard.warnIfOpen();
         }
@@ -395,9 +412,8 @@ class Inflater {
 
     private void ensureOpen () {
         assert Thread.holdsLock(zsRef);
-        // Android-changed: Throw IllegalStateException instead of a NullPointerException.
         if (zsRef.address() == 0)
-            throw new IllegalStateException("Inflater has been closed");
+            throw new NullPointerException("Inflater has been closed");
     }
 
     boolean ended() {

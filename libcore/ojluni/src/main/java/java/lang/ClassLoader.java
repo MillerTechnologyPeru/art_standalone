@@ -1047,6 +1047,7 @@ public abstract class ClassLoader {
         return parent;
     }
 
+    // Android-changed: Removed "java.system.class.loader" paragraph.
     /**
      * Returns the system class loader for delegation.  This is the default
      * delegation parent for new <tt>ClassLoader</tt> instances, and is
@@ -1058,16 +1059,6 @@ public abstract class ClassLoader {
      *
      * <p> The default system class loader is an implementation-dependent
      * instance of this class.
-     *
-     * <p> If the system property "<tt>java.system.class.loader</tt>" is defined
-     * when this method is first invoked then the value of that property is
-     * taken to be the name of a class that will be returned as the system
-     * class loader.  The class is loaded using the default system class loader
-     * and must define a public constructor that takes a single parameter of
-     * type <tt>ClassLoader</tt> which is used as the delegation parent.  An
-     * instance is then created using this constructor with the default system
-     * class loader as the parameter.  The resulting class loader is defined
-     * to be the system class loader.
      *
      * <p> If a security manager is present, and the invoker's class loader is
      * not <tt>null</tt> and the invoker's class loader is not the same as or
@@ -1105,6 +1096,18 @@ public abstract class ClassLoader {
     @CallerSensitive
     public static ClassLoader getSystemClassLoader() {
         return SystemClassLoader.loader;
+    }
+
+    // Returns the class's class loader, or null if none.
+    static ClassLoader getClassLoader(Class<?> caller) {
+        // This can be null if the VM is requesting it
+        if (caller == null) {
+            return null;
+        }
+        // Android-changed: Use Class.getClassLoader(); there is no Class.getClassLoader0().
+        // // Circumvent security check since this is package-private
+        // return caller.getClassLoader0();
+        return caller.getClassLoader();
     }
 
     // -- Package --

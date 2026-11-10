@@ -58,7 +58,27 @@ import javax.crypto.NoSuchPaddingException;
 import junit.framework.TestCase;
 import libcore.javax.crypto.MockKey;
 
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
 public class ProviderTest extends TestCase {
+
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
+
     private static final boolean LOG_DEBUG = false;
 
     /**
@@ -191,6 +211,32 @@ public class ProviderTest extends TestCase {
         // assert that we don't have any missing classes
         Collections.sort(missing); // sort it for readability
         assertEquals("Missing classes", Collections.EMPTY_LIST, missing);
+    }
+
+    // This tests the CDD requirement that specifies the first seven security providers
+    // (section 3.5, [C-0-9] as of P).
+    public void testProviderList() {
+        Provider[] providers = Security.getProviders();
+        assertTrue(providers.length >= 7);
+        assertProviderProperties(providers[0], "AndroidNSSP",
+            "android.security.net.config.NetworkSecurityConfigProvider");
+        assertProviderProperties(providers[1], "AndroidOpenSSL",
+            "com.android.org.conscrypt.OpenSSLProvider");
+        assertProviderProperties(providers[2], "CertPathProvider",
+            "sun.security.provider.CertPathProvider");
+        assertProviderProperties(providers[3], "AndroidKeyStoreBCWorkaround",
+            "android.security.keystore.AndroidKeyStoreBCWorkaroundProvider");
+        assertProviderProperties(providers[4], "BC",
+            "com.android.org.bouncycastle.jce.provider.BouncyCastleProvider");
+        assertProviderProperties(providers[5], "HarmonyJSSE",
+            "com.android.org.conscrypt.JSSEProvider");
+        assertProviderProperties(providers[6], "AndroidKeyStore",
+            "android.security.keystore.AndroidKeyStoreProvider");
+    }
+
+    private void assertProviderProperties(Provider p, String name, String className) {
+        assertEquals(name, p.getName());
+        assertEquals(className, p.getClass().getName());
     }
 
     private static final Pattern alias = Pattern.compile("Alg\\.Alias\\.([^.]*)\\.(.*)");
