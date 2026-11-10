@@ -28,11 +28,28 @@
 #include <GLES2/gl2ext.h>
 
 #include "renderstate/RenderState.h"
+#ifndef HWUI_NO_SURFACE_TEXTURE
 #include "surfacetexture/SurfaceTexture.h"
+#endif
 #include "Layer.h"
 #include "Rect.h"
 
 namespace android {
+
+#ifdef HWUI_NO_SURFACE_TEXTURE
+// Built without TextureView's SurfaceTexture, which needs libgui's
+// BufferQueue: no layer is ever given one, so these are never reached.
+class SurfaceTexture : public RefBase {
+public:
+    GLenum getCurrentTextureTarget() const { return GL_TEXTURE_EXTERNAL_OES; }
+    void attachToView() {}
+    void detachFromView() {}
+    sk_sp<SkImage> dequeueImage(SkMatrix&, bool* queueEmpty, uirenderer::RenderState&) {
+        *queueEmpty = true;
+        return nullptr;
+    }
+};
+#endif
 namespace uirenderer {
 
 class RenderState;
