@@ -22,6 +22,7 @@
 #include <sys/types.h>
 
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <iostream>
 
