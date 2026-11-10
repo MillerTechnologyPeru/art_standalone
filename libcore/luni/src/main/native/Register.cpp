@@ -58,9 +58,12 @@ jint JNI_OnLoad(JavaVM* vm, void*) {
 // -- Very important if we restart multiple DalvikVMs in the same process to reset the state.
 void JNI_OnUnload(JavaVM* vm, void*) {
     JNIEnv* env;
+    // The runtime unloads libraries as it shuts down, from a thread that may
+    // no longer be attached; with the process ending there is nothing left
+    // to clean up then.
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-        ALOGE("JavaVM::GetEnv() failed");
-        abort();
+        ALOGV("libjavacore JNI_OnUnload: no JNIEnv on this thread, nothing to unregister");
+        return;
     }
     ALOGV("libjavacore JNI_OnUnload");
 
