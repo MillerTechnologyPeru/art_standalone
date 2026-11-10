@@ -21,6 +21,7 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 
+#include <errno.h>
 #include <pthread.h>
 
 #include <android-base/logging.h>
@@ -44,27 +45,42 @@ ThreadPoolWorker::ThreadPoolWorker(ThreadPool* thread_pool, const std::string& n
                                    size_t stack_size)
     : thread_pool_(thread_pool),
       name_(name) {
-  // Add an inaccessible page to catch stack overflow.
-  stack_size += kPageSize;
-  std::string error_msg;
-  stack_ = MemMap::MapAnonymous(name.c_str(),
-                                stack_size,
-                                PROT_READ | PROT_WRITE,
-                                /*low_4gb=*/ false,
-                                &error_msg);
-  CHECK(stack_.IsValid()) << error_msg;
-  CHECK_ALIGNED(stack_.Begin(), kPageSize);
-  CheckedCall(mprotect,
-              "mprotect bottom page of thread pool worker stack",
-              stack_.Begin(),
-              kPageSize,
-              PROT_NONE);
   const char* reason = "new thread pool worker thread";
-  pthread_attr_t attr;
-  CHECK_PTHREAD_CALL(pthread_attr_init, (&attr), reason);
-  CHECK_PTHREAD_CALL(pthread_attr_setstack, (&attr, stack_.Begin(), stack_.Size()), reason);
-  CHECK_PTHREAD_CALL(pthread_create, (&pthread_, &attr, &Callback, this), reason);
-  CHECK_PTHREAD_CALL(pthread_attr_destroy, (&attr), reason);
+  // glibc puts a thread's static TLS inside the stack it is given, and says
+  // EINVAL when it doesn't fit. In a process whose libraries have a lot of
+  // it (Mead's loader keeps a block for bionic libraries' TLS), the stack
+  // asked for is too small: grow it until it fits.
+  size_t extra = 0;
+  for (;;) {
+    // Add an inaccessible page to catch stack overflow.
+    std::string error_msg;
+    stack_ = MemMap::MapAnonymous(name.c_str(),
+                                  stack_size + extra + kPageSize,
+                                  PROT_READ | PROT_WRITE,
+                                  /*low_4gb=*/ false,
+                                  &error_msg);
+    CHECK(stack_.IsValid()) << error_msg;
+    CHECK_ALIGNED(stack_.Begin(), kPageSize);
+    CheckedCall(mprotect,
+                "mprotect bottom page of thread pool worker stack",
+                stack_.Begin(),
+                kPageSize,
+                PROT_NONE);
+    pthread_attr_t attr;
+    CHECK_PTHREAD_CALL(pthread_attr_init, (&attr), reason);
+    CHECK_PTHREAD_CALL(pthread_attr_setstack, (&attr, stack_.Begin(), stack_.Size()), reason);
+    int result = pthread_create(&pthread_, &attr, &Callback, this);
+    CHECK_PTHREAD_CALL(pthread_attr_destroy, (&attr), reason);
+    if (result == 0) {
+      break;
+    }
+    if (result != EINVAL || extra >= 16 * MB) {
+      errno = result;
+      PLOG(FATAL) << "pthread_create failed for " << reason;
+    }
+    stack_.Reset();
+    extra = extra == 0 ? stack_size : extra * 2;
+  }
 }
 
 ThreadPoolWorker::~ThreadPoolWorker() {
