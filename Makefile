@@ -23,6 +23,16 @@ ____INSTALL_LIBDIR = $(____PREFIX)/$(____LIBDIR)
 ____INSTALL_INCLUDEDIR = $(____PREFIX)/$(____INCLUDEDIR)
 
 ____INSTALL_BINDIR_DX = $(____PREFIX_DX)/$(____BINDIR)
+
+# The Android 10 boot class path's jars (core-oj.jar, core-libart.jar,
+# framework.jar and the rest), from AOSP's build of android-security-10.0.0_r75:
+# Mead's Scripts/aosp/build-android-10-java.sh leaves them in out/mead-java,
+# with the ICU and time zone data the core library reads beside them, in
+# etc/icu and etc/tz.
+____ANDROID_JAVA_DIR ?= $(____TOPDIR)/out/android-java
+# Where that data goes: what ANDROID_RUNTIME_ROOT and ANDROID_TZDATA_ROOT
+# name when the runtime starts.
+____INSTALL_RUNTIME_ROOT = $(____PREFIX)/share/art
 ____INSTALL_LIBDIR_DX = $(____PREFIX_DX)/$(____LIBDIR)
 
 ____dalvikvm_bin_32 := $(____TOPDIR)/out/host/linux-x86/bin/dalvikvm
@@ -59,7 +69,7 @@ endif
 
 default: ____art_all
 
-____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libjavacore libcore libopenjdk libopenjdkjvm core-libart-hostdex core-oj-hostdex apachehttp-hostdex apache-xml-hostdex hamcrest-hostdex core-junit-hostdex junit-runner-hostdex bouncycastle-hostdex wolfssljni-hostdex okhttp-hostdex libandroidfw art-standalone.pc
+____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libandroidfw art-standalone.pc
 
 art-standalone.pc: art-standalone.pc.in
 	sed -e 's|@prefix@|$(____PREFIX)|g' \
@@ -75,7 +85,7 @@ install:
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libnativehelper.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libopenjdk.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libopenjdkjvm.so \
-	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libwolfssljni.so
+	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libandroidio.so
 #
 # these are mostly internal libs which there's no point in versioning because they don't have any kind of stable ABI - so we just shove them in art/ namespace
 # even the libunwind is actually a fork of libunwind 1.1 with added stuff that will likely never be upstreamed, especially since google stopped using libunwind
@@ -107,23 +117,11 @@ endif
 # packaging note: this should arguably be it's own package (together with out/host/linux-x86/framework/dx.jar)
 	install -Dt $(____INSTALL_BINDIR_DX) $(____TOPDIR)/out/host/linux-x86/bin/dx
 #
-# the dexed libraries
+# the dexed libraries: Android 10's boot class path, from AOSP's build
 # packaging note: these are architecture-independent
-	install -Dt $(____INSTALL_LIBDIR)/java/dex/art/ $(____TOPDIR)/out/host/linux-x86/framework/apachehttp-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/apache-xml-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/bouncycastle-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/core-junit-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/core-libart-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/core-oj-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/hamcrest-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/junit-runner-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/okhttp-hostdex.jar \
-	                                                $(____TOPDIR)/out/host/linux-x86/framework/wolfssljni-hostdex.jar
-#
-# packaging note: this is needed as bootclasspath when compiling android_translation_layer. Can be in -dev package.
-	install -D $(____TOPDIR)/out/host/common/obj/JAVA_LIBRARIES/core-all-hostdex_intermediates/classes.jar $(____INSTALL_LIBDIR)/java/core-all_classes.jar
-	install -D $(____TOPDIR)/out/host/common/obj/JAVA_LIBRARIES/core-junit-hostdex_intermediates/classes.jar $(____INSTALL_LIBDIR)/java/core-junit_classes.jar
-	install -D $(____TOPDIR)/out/host/common/obj/JAVA_LIBRARIES/junit-runner-hostdex_intermediates/classes.jar $(____INSTALL_LIBDIR)/java/junit-runner_classes.jar
+	install -m644 -Dt $(____INSTALL_LIBDIR)/java/dex/art/ $(wildcard $(____ANDROID_JAVA_DIR)/*.jar)
+	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/icu/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/icu/*)
+	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/tz/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/tz/*)
 #
 # packaging note: this should arguably be it's own package (together with out/host/linux-x86/bin/dx)
 	install -Dt $(____INSTALL_LIBDIR_DX)/java/ $(____TOPDIR)/out/host/linux-x86/framework/dx.jar
