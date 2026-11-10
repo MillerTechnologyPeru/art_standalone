@@ -137,6 +137,10 @@ endif
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/icu/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/icu/*)
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/tz/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/tz/*)
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/security/cacerts/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/security/cacerts/*)
+# the system fonts and their list, Android's /system/fonts and
+# /system/etc/fonts.xml
+	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/fonts.xml)
+	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/fonts/ $(wildcard $(____ANDROID_JAVA_DIR)/fonts/*)
 # the framework's resources, where the framework looks for them: /system,
 # which is ANDROID_ROOT here
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/framework/ $(wildcard $(____ANDROID_JAVA_DIR)/framework-res.apk)
