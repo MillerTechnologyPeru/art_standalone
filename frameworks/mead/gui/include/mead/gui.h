@@ -40,6 +40,19 @@ void mead_gui_get_display(MeadDisplay* display);
  * libgui keeps vsync with a timer at the display's refresh rate. */
 void mead_gui_vsync(int64_t timestamp);
 
+/* Windowing systems, for EGL. */
+enum {
+    MEAD_GUI_NATIVE_X11 = 1,
+    MEAD_GUI_NATIVE_WAYLAND = 2,
+};
+
+/* The windowing connection the bridge's windows are on: an X11 Display or a
+ * wl_display, of kind MEAD_GUI_NATIVE_*. hwui's EGL display is made on it. */
+void mead_gui_set_native_display(uint32_t kind, void* display);
+
+/* The windowing connection set, or kind 0 and NULL. */
+void mead_gui_get_native_display(uint32_t* kind, void** display);
+
 /* Receives a surface's frames. */
 typedef struct MeadSurfaceCallbacks {
     void* context;
@@ -53,6 +66,17 @@ typedef struct MeadSurfaceCallbacks {
  * to callbacks. It holds one reference, which ANativeWindow_release drops. */
 struct ANativeWindow* mead_surface_create(uint32_t width, uint32_t height, int32_t format,
                                           const MeadSurfaceCallbacks* callbacks);
+
+/* What EGL draws to for a surface made by mead_surface_create: an X11
+ * Window or a wl_egl_window, on the native display. With one, hwui's GL
+ * pipeline renders to the window itself; software frames still go to the
+ * surface's callbacks. */
+void mead_surface_set_native_window(struct ANativeWindow* surface, uintptr_t window);
+
+/* ANativeWindow's perform code for a surface's native window, as above:
+ * perform(window, MEAD_SURFACE_GET_NATIVE_WINDOW, uintptr_t* out). It is
+ * 0 for a surface without one. */
+#define MEAD_SURFACE_GET_NATIVE_WINDOW 0x4d454144
 
 /* Resizes a surface made by mead_surface_create: the buffers it hands out
  * from now on are width×height. */
