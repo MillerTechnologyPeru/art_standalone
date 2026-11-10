@@ -33,8 +33,7 @@
 #include <utils/Trace.h>
 
 #include <ui/Gralloc.h>
-#include <ui/Gralloc2.h>
-#include <ui/Gralloc3.h>
+#include <MeadGralloc.h>
 #include <ui/GraphicBuffer.h>
 
 #include <system/graphics.h>
@@ -45,18 +44,14 @@ namespace android {
 ANDROID_SINGLETON_STATIC_INSTANCE( GraphicBufferMapper )
 
 void GraphicBufferMapper::preloadHal() {
-    Gralloc2Mapper::preload();
-    Gralloc3Mapper::preload();
+    // Mead's gralloc has nothing to load.
 }
 
 GraphicBufferMapper::GraphicBufferMapper() {
-    mMapper = std::make_unique<const Gralloc3Mapper>();
-    if (!mMapper->isLoaded()) {
-        mMapper = std::make_unique<const Gralloc2Mapper>();
-        mMapperVersion = Version::GRALLOC_2;
-    } else {
-        mMapperVersion = Version::GRALLOC_3;
-    }
+    // Buffers in shared memory, in place of the gralloc HALs; locking them
+    // answers as gralloc 3 does, with bytes per pixel and per row.
+    mMapper = std::make_unique<const MeadGrallocMapper>();
+    mMapperVersion = Version::GRALLOC_3;
 
     if (!mMapper->isLoaded()) {
         LOG_ALWAYS_FATAL("gralloc-mapper is missing");
