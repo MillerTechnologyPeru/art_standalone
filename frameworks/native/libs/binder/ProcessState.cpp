@@ -449,7 +449,12 @@ ProcessState::ProcessState(const char *driver)
         }
     }
 
-    LOG_ALWAYS_FATAL_IF(mDriverFD < 0, "Binder driver could not be opened.  Terminating.");
+    // Mead: off Android there is usually no binder driver, and binder works
+    // in-process: local binders, Parcels and calling identities. Calls that
+    // need the driver fail instead.
+    if (mDriverFD < 0) {
+        ALOGW("No binder driver: binder works within this process only.");
+    }
 }
 
 ProcessState::~ProcessState()
