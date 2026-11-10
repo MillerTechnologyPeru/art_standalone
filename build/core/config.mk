@@ -43,6 +43,9 @@ SRC_HEADERS := \
 	$(TOPDIR)hardware/libhardware_legacy/include \
 	$(TOPDIR)hardware/ril/include \
 	$(TOPDIR)libnativehelper/include \
+	$(TOPDIR)libnativehelper/include_jni \
+	$(TOPDIR)libnativehelper/header_only_include \
+	$(TOPDIR)libnativehelper/platform_include \
 	$(TOPDIR)frameworks/native/include \
 	$(TOPDIR)frameworks/native/opengl/include \
 	$(TOPDIR)frameworks/av/include \
