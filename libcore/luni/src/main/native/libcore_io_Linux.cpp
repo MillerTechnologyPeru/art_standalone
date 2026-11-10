@@ -72,6 +72,7 @@
 #include "JniException.h"
 #include "NetworkUtilities.h"
 #include "Portability.h"
+#include "MeadSystemPath.h"
 
 #ifndef __unused
 #define __unused __attribute__((__unused__))
@@ -741,7 +742,7 @@ static bool javaSocketAddressToSockaddr(
 }
 
 static jobject doStat(JNIEnv* env, jstring javaPath, bool isLstat) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return NULL;
     }
@@ -972,7 +973,7 @@ static jobject Linux_accept(JNIEnv* env, jobject, jobject javaFd, jobject javaSo
 }
 
 static jboolean Linux_access(JNIEnv* env, jobject, jstring javaPath, jint mode) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return JNI_FALSE;
     }
@@ -1088,7 +1089,7 @@ static void Linux_capset(
 }
 
 static void Linux_chmod(JNIEnv* env, jobject, jstring javaPath, jint mode) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return;
     }
@@ -1096,7 +1097,7 @@ static void Linux_chmod(JNIEnv* env, jobject, jstring javaPath, jint mode) {
 }
 
 static void Linux_chown(JNIEnv* env, jobject, jstring javaPath, jint uid, jint gid) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return;
     }
@@ -1211,7 +1212,7 @@ static jobjectArray Linux_environ(JNIEnv* env, jobject) {
 }
 
 static void Linux_execve(JNIEnv* env, jobject, jstring javaFilename, jobjectArray javaArgv, jobjectArray javaEnvp) {
-    ScopedUtfChars path(env, javaFilename);
+    ScopedPathChars path(env, javaFilename);
     if (path.c_str() == NULL) {
         return;
     }
@@ -1224,7 +1225,7 @@ static void Linux_execve(JNIEnv* env, jobject, jstring javaFilename, jobjectArra
 }
 
 static void Linux_execv(JNIEnv* env, jobject, jstring javaFilename, jobjectArray javaArgv) {
-    ScopedUtfChars path(env, javaFilename);
+    ScopedPathChars path(env, javaFilename);
     if (path.c_str() == NULL) {
         return;
     }
@@ -1565,7 +1566,7 @@ static jint Linux_getuid(JNIEnv*, jobject) {
 
 static jbyteArray Linux_getxattr(JNIEnv* env, jobject, jstring javaPath,
         jstring javaName) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return NULL;
     }
@@ -1798,7 +1799,7 @@ static void Linux_kill(JNIEnv* env, jobject, jint pid, jint sig) {
 }
 
 static void Linux_lchown(JNIEnv* env, jobject, jstring javaPath, jint uid, jint gid) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return;
     }
@@ -1806,11 +1807,11 @@ static void Linux_lchown(JNIEnv* env, jobject, jstring javaPath, jint uid, jint 
 }
 
 static void Linux_link(JNIEnv* env, jobject, jstring javaOldPath, jstring javaNewPath) {
-    ScopedUtfChars oldPath(env, javaOldPath);
+    ScopedPathChars oldPath(env, javaOldPath);
     if (oldPath.c_str() == NULL) {
         return;
     }
-    ScopedUtfChars newPath(env, javaNewPath);
+    ScopedPathChars newPath(env, javaNewPath);
     if (newPath.c_str() == NULL) {
         return;
     }
@@ -1823,7 +1824,7 @@ static void Linux_listen(JNIEnv* env, jobject, jobject javaFd, jint backlog) {
 }
 
 static jobjectArray Linux_listxattr(JNIEnv* env, jobject, jstring javaPath) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return NULL;
     }
@@ -1877,7 +1878,7 @@ static void Linux_mincore(JNIEnv* env, jobject, jlong address, jlong byteCount, 
 }
 
 static void Linux_mkdir(JNIEnv* env, jobject, jstring javaPath, jint mode) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return;
     }
@@ -1885,7 +1886,7 @@ static void Linux_mkdir(JNIEnv* env, jobject, jstring javaPath, jint mode) {
 }
 
 static void Linux_mkfifo(JNIEnv* env, jobject, jstring javaPath, jint mode) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return;
     }
@@ -1923,7 +1924,7 @@ static void Linux_munmap(JNIEnv* env, jobject, jlong address, jlong byteCount) {
 }
 
 static jobject Linux_open(JNIEnv* env, jobject, jstring javaPath, jint flags, jint mode) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return NULL;
     }
@@ -2080,7 +2081,7 @@ static jint Linux_readBytes(JNIEnv* env, jobject, jobject javaFd, jobject javaBy
 }
 
 static jstring Linux_readlink(JNIEnv* env, jobject, jstring javaPath) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return NULL;
     }
@@ -2094,7 +2095,7 @@ static jstring Linux_readlink(JNIEnv* env, jobject, jstring javaPath) {
 }
 
 static jstring Linux_realpath(JNIEnv* env, jobject, jstring javaPath) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return NULL;
     }
@@ -2139,7 +2140,7 @@ static jint Linux_recvfromBytes(JNIEnv* env, jobject, jobject javaFd, jobject ja
 }
 
 static void Linux_remove(JNIEnv* env, jobject, jstring javaPath) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return;
     }
@@ -2147,7 +2148,7 @@ static void Linux_remove(JNIEnv* env, jobject, jstring javaPath) {
 }
 
 static void Linux_removexattr(JNIEnv* env, jobject, jstring javaPath, jstring javaName) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return;
     }
@@ -2163,11 +2164,11 @@ static void Linux_removexattr(JNIEnv* env, jobject, jstring javaPath, jstring ja
 }
 
 static void Linux_rename(JNIEnv* env, jobject, jstring javaOldPath, jstring javaNewPath) {
-    ScopedUtfChars oldPath(env, javaOldPath);
+    ScopedPathChars oldPath(env, javaOldPath);
     if (oldPath.c_str() == NULL) {
         return;
     }
-    ScopedUtfChars newPath(env, javaNewPath);
+    ScopedPathChars newPath(env, javaNewPath);
     if (newPath.c_str() == NULL) {
         return;
     }
@@ -2371,7 +2372,7 @@ static void Linux_setuid(JNIEnv* env, jobject, jint uid) {
 
 static void Linux_setxattr(JNIEnv* env, jobject, jstring javaPath, jstring javaName,
         jbyteArray javaValue, jint flags) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return;
     }
@@ -2469,7 +2470,7 @@ static jobject Linux_stat(JNIEnv* env, jobject, jstring javaPath) {
 }
 
 static jobject Linux_statvfs(JNIEnv* env, jobject, jstring javaPath) {
-    ScopedUtfChars path(env, javaPath);
+    ScopedPathChars path(env, javaPath);
     if (path.c_str() == NULL) {
         return NULL;
     }
@@ -2493,11 +2494,11 @@ static jstring Linux_strsignal(JNIEnv* env, jobject, jint signal) {
 }
 
 static void Linux_symlink(JNIEnv* env, jobject, jstring javaOldPath, jstring javaNewPath) {
-    ScopedUtfChars oldPath(env, javaOldPath);
+    ScopedPathChars oldPath(env, javaOldPath);
     if (oldPath.c_str() == NULL) {
         return;
     }
-    ScopedUtfChars newPath(env, javaNewPath);
+    ScopedPathChars newPath(env, javaNewPath);
     if (newPath.c_str() == NULL) {
         return;
     }
@@ -2537,7 +2538,7 @@ static jobject Linux_uname(JNIEnv* env, jobject) {
 }
 
 static void Linux_unlink(JNIEnv* env, jobject, jstring javaPathname) {
-    ScopedUtfChars pathname(env, javaPathname);
+    ScopedPathChars pathname(env, javaPathname);
     if (pathname.c_str() == NULL) {
         return;
     }
