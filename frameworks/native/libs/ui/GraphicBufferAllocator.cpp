@@ -30,8 +30,7 @@
 #include <utils/Trace.h>
 
 #include <ui/Gralloc.h>
-#include <ui/Gralloc2.h>
-#include <ui/Gralloc3.h>
+#include <MeadGralloc.h>
 #include <ui/GraphicBufferMapper.h>
 
 namespace android {
@@ -46,12 +45,8 @@ KeyedVector<buffer_handle_t,
     GraphicBufferAllocator::alloc_rec_t> GraphicBufferAllocator::sAllocList;
 
 GraphicBufferAllocator::GraphicBufferAllocator() : mMapper(GraphicBufferMapper::getInstance()) {
-    mAllocator = std::make_unique<const Gralloc3Allocator>(
-            reinterpret_cast<const Gralloc3Mapper&>(mMapper.getGrallocMapper()));
-    if (!mAllocator->isLoaded()) {
-        mAllocator = std::make_unique<const Gralloc2Allocator>(
-                reinterpret_cast<const Gralloc2Mapper&>(mMapper.getGrallocMapper()));
-    }
+    // Buffers in shared memory, in place of the gralloc HALs.
+    mAllocator = std::make_unique<const MeadGrallocAllocator>();
 
     if (!mAllocator->isLoaded()) {
         LOG_ALWAYS_FATAL("gralloc-allocator is missing");
