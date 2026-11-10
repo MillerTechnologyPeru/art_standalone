@@ -19,7 +19,7 @@ include $(CLEAR_VARS)
 commonSources := \
 	hashmap.c \
 	atomic.c.arm \
-	native_handle.c \
+	native_handle.cpp \
 	config_utils.c \
 	load_file.c \
 	strlcpy.c \
