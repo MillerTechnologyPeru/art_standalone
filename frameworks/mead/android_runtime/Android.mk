@@ -1,7 +1,8 @@
 #
 # libandroid_runtime for the host: Android 10's framework JNI
 # (frameworks/base/core/jni), as much of it as runs here so far (now with
-# the graphics JNI over hwui, without Movie, SurfaceTexture and PDF), registered
+# the graphics JNI over hwui, without Movie, SurfaceTexture and PDF, and
+# HardwareRenderer, RenderNode and Mead's own android.view.Surface), registered
 # from JNI_OnLoad by android_runtime_mead.cpp instead of by app_process.
 #
 
@@ -14,6 +15,12 @@ LOCAL_MODULE := libandroid_runtime
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := \
     android_runtime_mead.cpp \
+    android_view_Surface.cpp \
+    ../../base/core/jni/android_os_MessageQueue.cpp \
+    ../../base/core/jni/android_view_DisplayListCanvas.cpp \
+    ../../base/core/jni/android_view_RenderNode.cpp \
+    ../../base/core/jni/android_view_RenderNodeAnimator.cpp \
+    ../../base/core/jni/android_view_ThreadedRenderer.cpp \
     ../../base/core/jni/android_util_Log.cpp \
     ../../base/core/jni/android_os_SystemClock.cpp \
     ../../base/core/jni/android_os_SystemProperties.cpp \
@@ -70,13 +77,15 @@ LOCAL_C_INCLUDES := \
     $(android_runtime_jni)/include \
     $(android_runtime_jni)/android/graphics \
     external/libjpeg-turbo \
+    frameworks/mead/egl/include \
     hardware/libhardware/include \
     system/core/libgrallocusage/include \
     frameworks/native/include \
     frameworks/mead/compat/include
 # Android 10's code calls String8::string() and String16::string(), which the
 # fork's newer libutils keeps behind these.
-LOCAL_CFLAGS := -Wall -Wextra -Wno-unused-parameter \
+# Mead's libgui has no BufferQueue: what renders into one is left out.
+LOCAL_CFLAGS := -Wall -Wextra -Wno-unused-parameter -DLIBGUI_NO_BUFFER_QUEUE \
     -DENABLE_STRING8_OBSOLETE_METHODS -DENABLE_STRING16_OBSOLETE_METHODS \
     -include mead/android10_compat.h
 LOCAL_CPPFLAGS := -std=gnu++17
