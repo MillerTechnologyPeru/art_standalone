@@ -2911,7 +2911,7 @@ static inline std::string toString(::android::hardware::graphics::common::V1_1::
 namespace android {
 namespace hardware {
 namespace details {
-template<> constexpr std::array<::android::hardware::graphics::common::V1_1::PixelFormat, 27> hidl_enum_values<::android::hardware::graphics::common::V1_1::PixelFormat> = {
+template<> inline constexpr std::array<::android::hardware::graphics::common::V1_1::PixelFormat, 27> hidl_enum_values<::android::hardware::graphics::common::V1_1::PixelFormat> = {
     ::android::hardware::graphics::common::V1_1::PixelFormat::RGBA_8888,
     ::android::hardware::graphics::common::V1_1::PixelFormat::RGBX_8888,
     ::android::hardware::graphics::common::V1_1::PixelFormat::RGB_888,
@@ -2947,7 +2947,7 @@ template<> constexpr std::array<::android::hardware::graphics::common::V1_1::Pix
 namespace android {
 namespace hardware {
 namespace details {
-template<> constexpr std::array<::android::hardware::graphics::common::V1_1::BufferUsage, 25> hidl_enum_values<::android::hardware::graphics::common::V1_1::BufferUsage> = {
+template<> inline constexpr std::array<::android::hardware::graphics::common::V1_1::BufferUsage, 25> hidl_enum_values<::android::hardware::graphics::common::V1_1::BufferUsage> = {
     ::android::hardware::graphics::common::V1_1::BufferUsage::CPU_READ_MASK,
     ::android::hardware::graphics::common::V1_1::BufferUsage::CPU_READ_NEVER,
     ::android::hardware::graphics::common::V1_1::BufferUsage::CPU_READ_RARELY,
@@ -2981,7 +2981,7 @@ template<> constexpr std::array<::android::hardware::graphics::common::V1_1::Buf
 namespace android {
 namespace hardware {
 namespace details {
-template<> constexpr std::array<::android::hardware::graphics::common::V1_1::Dataspace, 61> hidl_enum_values<::android::hardware::graphics::common::V1_1::Dataspace> = {
+template<> inline constexpr std::array<::android::hardware::graphics::common::V1_1::Dataspace, 61> hidl_enum_values<::android::hardware::graphics::common::V1_1::Dataspace> = {
     ::android::hardware::graphics::common::V1_1::Dataspace::UNKNOWN,
     ::android::hardware::graphics::common::V1_1::Dataspace::ARBITRARY,
     ::android::hardware::graphics::common::V1_1::Dataspace::STANDARD_SHIFT,
@@ -3051,7 +3051,7 @@ template<> constexpr std::array<::android::hardware::graphics::common::V1_1::Dat
 namespace android {
 namespace hardware {
 namespace details {
-template<> constexpr std::array<::android::hardware::graphics::common::V1_1::ColorMode, 13> hidl_enum_values<::android::hardware::graphics::common::V1_1::ColorMode> = {
+template<> inline constexpr std::array<::android::hardware::graphics::common::V1_1::ColorMode, 13> hidl_enum_values<::android::hardware::graphics::common::V1_1::ColorMode> = {
     ::android::hardware::graphics::common::V1_1::ColorMode::NATIVE,
     ::android::hardware::graphics::common::V1_1::ColorMode::STANDARD_BT601_625,
     ::android::hardware::graphics::common::V1_1::ColorMode::STANDARD_BT601_625_UNADJUSTED,
@@ -3073,7 +3073,7 @@ template<> constexpr std::array<::android::hardware::graphics::common::V1_1::Col
 namespace android {
 namespace hardware {
 namespace details {
-template<> constexpr std::array<::android::hardware::graphics::common::V1_1::RenderIntent, 4> hidl_enum_values<::android::hardware::graphics::common::V1_1::RenderIntent> = {
+template<> inline constexpr std::array<::android::hardware::graphics::common::V1_1::RenderIntent, 4> hidl_enum_values<::android::hardware::graphics::common::V1_1::RenderIntent> = {
     ::android::hardware::graphics::common::V1_1::RenderIntent::COLORIMETRIC,
     ::android::hardware::graphics::common::V1_1::RenderIntent::ENHANCE,
     ::android::hardware::graphics::common::V1_1::RenderIntent::TONE_MAP_COLORIMETRIC,
