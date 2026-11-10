@@ -201,13 +201,24 @@ $$(GENERATED_SRC_DIR)/asm_defines.h : $$(GENERATED_SRC_DIR)/asm_defines.S
 LOCAL_GENERATED_SOURCES += $$(GENERATED_SRC_DIR)/asm_defines.h
 LOCAL_ADDITIONAL_DEPENDENCIES += $$(GENERATED_SRC_DIR)/asm_defines.h
 endef
+# bionic_translation's libdl_bio if it is installed, otherwise the fallback in
+# system/core/libdl_bio.
+include system/core/libdl_bio/system_dl_bio.mk
+ifneq ($(ART_SYSTEM_DL_BIO),)
+____libart_dl_bio_LDLIBS := -ldl_bio
+____libart_dl_bio_SHARED_LIBS :=
+else
+____libart_dl_bio_LDLIBS :=
+____libart_dl_bio_SHARED_LIBS := libdl_bio
+endif
 libart_defaults_CFLAGS   = -DBUILDING_LIBART=1
 libart_defaults_LDLIBS   =  \
         $(libart_defaults_$(HOST_ARCH)_HOST_LDLIBS) \
         -lz \
-        -ldl_bio \
+        $(____libart_dl_bio_LDLIBS) \
         -llz4
 libart_defaults_SHARED_LIBS =  \
+        $(____libart_dl_bio_SHARED_LIBS) \
         libartpalette \
         libnativebridge \
         libbacktrace \
