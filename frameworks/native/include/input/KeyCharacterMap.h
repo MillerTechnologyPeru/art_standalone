@@ -19,7 +19,7 @@
 
 #include <stdint.h>
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__GLIBC__) // with libbinder's Parcel
 #include <binder/IBinder.h>
 #endif
 
@@ -134,7 +134,7 @@ public:
     void tryRemapKey(int32_t scanCode, int32_t metaState,
             int32_t* outKeyCode, int32_t* outMetaState) const;
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__GLIBC__) // with libbinder's Parcel
     /* Reads a key map from a parcel. */
     static sp<KeyCharacterMap> readFromParcel(Parcel* parcel);
 
