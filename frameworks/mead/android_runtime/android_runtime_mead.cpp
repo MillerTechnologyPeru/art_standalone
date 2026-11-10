@@ -72,6 +72,12 @@ extern int register_android_content_AssetManager(JNIEnv* env);
 extern int register_android_content_res_ApkAssets(JNIEnv* env);
 extern int register_android_content_StringBlock(JNIEnv* env);
 extern int register_android_content_XmlBlock(JNIEnv* env);
+extern int register_android_view_RenderNode(JNIEnv* env);
+extern int register_android_view_RenderNodeAnimator(JNIEnv* env);
+extern int register_android_view_DisplayListCanvas(JNIEnv* env);
+extern int register_android_view_ThreadedRenderer(JNIEnv* env);
+extern int register_android_view_Surface(JNIEnv* env);
+extern int register_android_os_MessageQueue(JNIEnv* env);
 extern int register_android_graphics_Canvas(JNIEnv* env);
 extern int register_android_graphics_CanvasProperty(JNIEnv* env);
 extern int register_android_graphics_ColorFilter(JNIEnv* env);
@@ -156,6 +162,11 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_os_Parcel),
     REG_JNI(register_android_os_Trace),
     REG_JNI(register_android_graphics_Canvas),
+    REG_JNI(register_android_view_RenderNode),
+    REG_JNI(register_android_view_RenderNodeAnimator),
+    REG_JNI(register_android_view_DisplayListCanvas),
+    REG_JNI(register_android_view_ThreadedRenderer),
+    REG_JNI(register_android_view_Surface),
     REG_JNI(register_android_graphics_ColorSpace),
     REG_JNI(register_android_graphics_Graphics),
     REG_JNI(register_android_graphics_Bitmap),
@@ -191,6 +202,7 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_graphics_text_MeasuredText),
     REG_JNI(register_android_graphics_text_LineBreaker),
     REG_JNI(register_android_hardware_HardwareBuffer),
+    REG_JNI(register_android_os_MessageQueue),
 };
 
 }  // namespace android
