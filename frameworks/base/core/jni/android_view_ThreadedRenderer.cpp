@@ -27,8 +27,10 @@
 #include <GraphicsJNI.h>
 #include <nativehelper/ScopedPrimitiveArray.h>
 
+#ifndef LIBGUI_NO_BUFFER_QUEUE
 #include <gui/BufferItemConsumer.h>
 #include <gui/BufferQueue.h>
+#endif
 #include <gui/Surface.h>
 
 #include <private/EGL/cache.h>
@@ -933,6 +935,11 @@ static jobject android_view_ThreadedRenderer_createHardwareBitmapFromRenderNode(
         return nullptr;
     }
 
+#ifdef LIBGUI_NO_BUFFER_QUEUE
+    // Rendering a node into a buffer needs libgui's BufferQueue.
+    ALOGW("createHardwareBitmap: there is no BufferQueue to render into");
+    return nullptr;
+#else
     uint32_t width = jwidth;
     uint32_t height = jheight;
 
@@ -994,6 +1001,7 @@ static jobject android_view_ThreadedRenderer_createHardwareBitmapFromRenderNode(
     sk_sp<Bitmap> bitmap = Bitmap::createFrom(buffer, ct, cs);
     return bitmap::createBitmap(env, bitmap.release(),
             android::bitmap::kBitmapCreateFlag_Premultiplied);
+#endif
 }
 
 static void android_view_ThreadedRenderer_disableVsync(JNIEnv*, jclass) {
