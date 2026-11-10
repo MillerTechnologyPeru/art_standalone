@@ -653,7 +653,7 @@ Thread::Thread(bool canCallJava)
       mStatus(OK),
       mExitPending(false),
       mRunning(false)
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__GLIBC__)
       ,
       mTid(-1)
 #endif
@@ -726,7 +726,7 @@ int Thread::_threadLoop(void* user)
     wp<Thread> weak(strong);
     self->mHoldSelf.clear();
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__GLIBC__)
     // this is very useful for debugging with gdb
     self->mTid = gettid();
 #endif
@@ -851,6 +851,13 @@ pid_t Thread::getTid() const
         tid = -1;
     }
     return tid;
+}
+#elif defined(__GLIBC__)
+pid_t Thread::getTid() const
+{
+    // glibc has no pthread_gettid_np: the ID the thread records once it runs.
+    Mutex::Autolock _l(mLock);
+    return mRunning ? mTid : -1;
 }
 #endif
 
