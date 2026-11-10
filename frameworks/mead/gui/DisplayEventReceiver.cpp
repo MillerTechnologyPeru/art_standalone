@@ -28,6 +28,8 @@ struct DisplayEvents {
     std::condition_variable wanted;
     MeadDisplay display{1280, 720, 160.0f, 160.0f, 60.0f, 1.0f};
     bool displaySet = false;
+    uint32_t nativeKind = 0;
+    void* nativeDisplay = nullptr;
     std::set<DisplayEventReceiver*> receivers;
     bool timerStarted = false;
     bool bridgeVsync = false;
@@ -194,6 +196,20 @@ void mead_gui_set_display(const MeadDisplay* display) {
     event.header.timestamp = systemTime(SYSTEM_TIME_MONOTONIC);
     event.config.configId = 0;
     for (DisplayEventReceiver* receiver : events.receivers) DisplayEvents::send(receiver, event);
+}
+
+void mead_gui_set_native_display(uint32_t kind, void* display) {
+    DisplayEvents& events = DisplayEvents::get();
+    std::lock_guard<std::mutex> lock(events.mutex);
+    events.nativeKind = kind;
+    events.nativeDisplay = display;
+}
+
+void mead_gui_get_native_display(uint32_t* kind, void** display) {
+    DisplayEvents& events = DisplayEvents::get();
+    std::lock_guard<std::mutex> lock(events.mutex);
+    *kind = events.nativeKind;
+    *display = events.nativeDisplay;
 }
 
 void mead_gui_get_display(MeadDisplay* display) {
