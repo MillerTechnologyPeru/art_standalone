@@ -23,6 +23,8 @@
 
 #include "JniConstants.h"
 
+#include <stdlib.h>
+
 #include <atomic>
 #include <mutex>
 
