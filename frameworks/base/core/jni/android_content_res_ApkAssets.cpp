@@ -19,6 +19,11 @@
 #include "android-base/macros.h"
 #include "android-base/stringprintf.h"
 #include "android-base/unique_fd.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+#include <string>
 #include "androidfw/ApkAssets.h"
 #include "utils/misc.h"
 #include "utils/Trace.h"
@@ -31,6 +36,17 @@ using ::android::base::unique_fd;
 
 namespace android {
 
+// Off Android, /system is wherever ANDROID_ROOT names, as Environment's
+// getRootDirectory() has it; the framework still names its own APK by
+// /system/framework/framework-res.apk.
+static std::string SystemPath(const char* path) {
+  const char* root = getenv("ANDROID_ROOT");
+  if (root != nullptr && strcmp(root, "/system") != 0 && strncmp(path, "/system/", 8) == 0) {
+    return std::string(root) + (path + strlen("/system"));
+  }
+  return path;
+}
+
 static jlong NativeLoad(JNIEnv* env, jclass /*clazz*/, jstring java_path, jboolean system,
                         jboolean force_shared_lib, jboolean overlay) {
   ScopedUtfChars path(env, java_path);
@@ -40,13 +56,14 @@ static jlong NativeLoad(JNIEnv* env, jclass /*clazz*/, jstring java_path, jboole
 
   ATRACE_NAME(base::StringPrintf("LoadApkAssets(%s)", path.c_str()).c_str());
 
+  const std::string load_path = SystemPath(path.c_str());
   std::unique_ptr<const ApkAssets> apk_assets;
   if (overlay) {
-    apk_assets = ApkAssets::LoadOverlay(path.c_str(), system);
+    apk_assets = ApkAssets::LoadOverlay(load_path, system);
   } else if (force_shared_lib) {
-    apk_assets = ApkAssets::LoadAsSharedLibrary(path.c_str(), system);
+    apk_assets = ApkAssets::LoadAsSharedLibrary(load_path, system);
   } else {
-    apk_assets = ApkAssets::Load(path.c_str(), system);
+    apk_assets = ApkAssets::Load(load_path, system);
   }
 
   if (apk_assets == nullptr) {
