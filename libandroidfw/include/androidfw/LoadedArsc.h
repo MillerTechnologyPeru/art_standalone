@@ -265,7 +265,7 @@ class LoadedPackage {
   ByteBucketArray<TypeSpecPtr> type_specs_;
   ByteBucketArray<uint32_t> resource_ids_;
   std::vector<DynamicPackageEntry> dynamic_package_map_;
-  std::vector<const std::pair<OverlayableInfo, std::unordered_set<uint32_t>>> overlayable_infos_;
+  std::vector<std::pair<OverlayableInfo, std::unordered_set<uint32_t>>> overlayable_infos_;
   std::unordered_map<std::string, std::string> overlayable_map_;
 };
 
