@@ -189,7 +189,7 @@ collapse(char *path)
 // Android-changed: hidden to avoid conflict with libm (b/135018555)
 __attribute__((visibility("hidden")))
 int
-canonicalize(char *original, char *resolved, int len)
+JDK_canonicalize(char *original, char *resolved, int len)
 {
     if (len < PATH_MAX) {
         errno = EINVAL;
