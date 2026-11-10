@@ -54,6 +54,13 @@ public:
     typedef T value_type;  // needed to implement std::allocator
     typedef T* pointer;    // needed to implement std::allocator
 
+    // libstdc++ rebinds allocators, which it can't do by itself for one with
+    // a size parameter.
+    template <typename U>
+    struct rebind {
+        typedef InlineStdAllocator<U, SIZE> other;
+    };
+
     explicit InlineStdAllocator(Allocation& allocation) : mAllocation(allocation) {}
     InlineStdAllocator(const InlineStdAllocator& other) : mAllocation(other.mAllocation) {}
     ~InlineStdAllocator() {}
