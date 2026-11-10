@@ -38,7 +38,6 @@
 #include <SkCanvas.h>
 #include <SkBitmap.h>
 
-#include <private/gui/ComposerService.h>
 
 #include "core_jni_helpers.h"
 
