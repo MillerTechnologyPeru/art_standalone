@@ -40,7 +40,7 @@ class FileReader : public zip_archive::Reader {
     explicit FileReader(FILE* fp) : Reader(), mFp(fp), mCurrentOffset(0) {
     }
 
-    bool ReadAtOffset(uint8_t* buf, size_t len, uint32_t offset) const {
+    bool ReadAtOffset(uint8_t* buf, size_t len, off64_t offset) const override {
         // Data is usually requested sequentially, so this helps avoid pointless
         // fseeks every time we perform a read. There's an impedence mismatch
         // here because the original API was designed around pread and pwrite.
@@ -71,7 +71,7 @@ class FdReader : public zip_archive::Reader {
     explicit FdReader(int fd) : mFd(fd) {
     }
 
-    bool ReadAtOffset(uint8_t* buf, size_t len, uint32_t offset) const {
+    bool ReadAtOffset(uint8_t* buf, size_t len, off64_t offset) const override {
       return android::base::ReadFullyAtOffset(mFd, buf, len, static_cast<off_t>(offset));
     }
 
@@ -86,7 +86,7 @@ class BufferReader : public zip_archive::Reader {
         mInputSize(inputSize) {
     }
 
-    bool ReadAtOffset(uint8_t* buf, size_t len, uint32_t offset) const {
+    bool ReadAtOffset(uint8_t* buf, size_t len, off64_t offset) const override {
         if (offset + len > mInputSize) {
             return false;
         }
