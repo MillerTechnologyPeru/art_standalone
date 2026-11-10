@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-/** JNI utils for nativehelper-internal use. */
-
-#pragma once
-
-#include <jni.h>
+#ifndef NATIVEHELPER_MACROS_H_
+#define NATIVEHELPER_MACROS_H_
 
 #if defined(__cplusplus)
 
@@ -30,8 +27,9 @@
   void operator=(const TypeName&) = delete
 #endif  // !defined(DISALLOW_COPY_AND_ASSIGN)
 
+#ifndef NATIVEHELPER_JNIHELP_H_
 // This seems a header-only include. Provide NPE throwing.
-static inline int jniThrowNullPointerException(JNIEnv* env) {
+static inline int jniThrowNullPointerException(JNIEnv* env, const char* msg) {
     if (env->ExceptionCheck()) {
         // Drop any pending exception.
         env->ExceptionClear();
@@ -42,7 +40,7 @@ static inline int jniThrowNullPointerException(JNIEnv* env) {
         return -1;
     }
 
-    if (env->ThrowNew(e_class, nullptr) != JNI_OK) {
+    if (env->ThrowNew(e_class, msg) != JNI_OK) {
         env->DeleteLocalRef(e_class);
         return -1;
     }
@@ -50,6 +48,8 @@ static inline int jniThrowNullPointerException(JNIEnv* env) {
     env->DeleteLocalRef(e_class);
     return 0;
 }
+#endif  // NATIVEHELPER_JNIHELP_H_
 
 #endif  // defined(__cplusplus)
 
+#endif  // NATIVEHELPER_MACROS_H_

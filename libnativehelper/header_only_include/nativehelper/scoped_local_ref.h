@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef SCOPED_LOCAL_REF_H_
+#define SCOPED_LOCAL_REF_H_
 
 #include <cstddef>
 
-#include <jni.h>
-
+#include "jni.h"
 #include "nativehelper_utils.h"
 
 // A smart pointer that deletes a JNI local reference when it goes out of scope.
-//
-// For creating a `ScopedLocalRef<jstring>`, consider using `CREATE_UTF_OR_RETURN`.
 template<typename T>
 class ScopedLocalRef {
 public:
@@ -41,9 +39,9 @@ public:
         reset();
     }
 
-    void reset(T ptr = nullptr) {
+    void reset(T ptr = NULL) {
         if (ptr != mLocalRef) {
-            if (mLocalRef != nullptr) {
+            if (mLocalRef != NULL) {
                 mEnv->DeleteLocalRef(mLocalRef);
             }
             mLocalRef = ptr;
@@ -52,7 +50,7 @@ public:
 
     T release() __attribute__((warn_unused_result)) {
         T localRef = mLocalRef;
-        mLocalRef = nullptr;
+        mLocalRef = NULL;
         return localRef;
     }
 
@@ -90,3 +88,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ScopedLocalRef);
 };
 
+#endif  // SCOPED_LOCAL_REF_H_
