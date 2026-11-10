@@ -588,17 +588,14 @@ bool ParsedOptions::DoParse(const RuntimeOptions& options,
       strcat(libart_so_full_path, path_to_jars);
       char *bootclasspath_prefix = realpath(libart_so_full_path, NULL);
       free(libart_so_full_path);
+      // Android 10's core library, as AOSP builds it; the framework's jars
+      // come after these when the runtime is given them.
       std::string bootclasspath_final = (std::string)
-                                        bootclasspath_prefix + "/core-oj-hostdex.jar"      + ':' +
-                                        bootclasspath_prefix + "/apachehttp-hostdex.jar"   + ':' +
-                                        bootclasspath_prefix + "/apache-xml-hostdex.jar"   + ':' +
-                                        bootclasspath_prefix + "/bouncycastle-hostdex.jar" + ':' +
-                                        bootclasspath_prefix + "/core-junit-hostdex.jar"   + ':' +
-                                        bootclasspath_prefix + "/core-libart-hostdex.jar"  + ':' +
-                                        bootclasspath_prefix + "/hamcrest-hostdex.jar"     + ':' +
-                                        bootclasspath_prefix + "/junit-runner-hostdex.jar" + ':' +
-                                        bootclasspath_prefix + "/okhttp-hostdex.jar"       + ':' +
-                                        bootclasspath_prefix + "/wolfssljni-hostdex.jar";
+                                        bootclasspath_prefix + "/core-oj.jar"      + ':' +
+                                        bootclasspath_prefix + "/core-libart.jar"  + ':' +
+                                        bootclasspath_prefix + "/okhttp.jar"       + ':' +
+                                        bootclasspath_prefix + "/bouncycastle.jar" + ':' +
+                                        bootclasspath_prefix + "/apache-xml.jar";
       free(bootclasspath_prefix);
 
       if(args.Exists(M::BootClassPath_a))
