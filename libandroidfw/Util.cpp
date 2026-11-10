@@ -17,6 +17,7 @@
 #include "androidfw/Util.h"
 
 #include <algorithm>
+#include <functional>
 #include <string>
 
 #include "utils/ByteOrder.h"
