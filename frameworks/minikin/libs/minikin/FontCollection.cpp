@@ -19,6 +19,7 @@
 #include "minikin/FontCollection.h"
 
 #include <algorithm>
+#include <atomic>
 
 #include <log/log.h>
 #include <unicode/unorm2.h>
