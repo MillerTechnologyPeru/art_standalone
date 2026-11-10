@@ -67,7 +67,7 @@ static size_t toLanguageTag(char* output, size_t outSize, const StringPiece& loc
     }
 
     uErr = U_ZERO_ERROR;
-    outLength = uloc_toLanguageTag(likelyChars, output, outSize, FALSE, &uErr);
+    outLength = uloc_toLanguageTag(likelyChars, output, outSize, false, &uErr);
     if (U_FAILURE(uErr) || (uErr == U_STRING_NOT_TERMINATED_WARNING)) {
         // unable to build a proper locale identifier
         ALOGD("uloc_toLanguageTag(\"%s\") failed: %s", likelyChars, u_errorName(uErr));
