@@ -31,9 +31,12 @@ ____INSTALL_BINDIR_DX = $(____PREFIX_DX)/$(____BINDIR)
 # etc/icu and etc/tz, and the CA certificates in etc/security/cacerts.
 ____ANDROID_JAVA_DIR ?= $(____TOPDIR)/out/android-java
 # Where that data goes: what ANDROID_RUNTIME_ROOT and ANDROID_TZDATA_ROOT
-# name when the runtime starts, and ANDROID_ROOT, for Conscrypt's CA
-# certificates in etc/security/cacerts.
+# name when the runtime starts, and ANDROID_ROOT, Android's /system: Conscrypt's
+# CA certificates in etc/security/cacerts, the framework's resources in
+# framework/framework-res.apk, and build.prop.
 ____INSTALL_RUNTIME_ROOT = $(____PREFIX)/share/art
+# Android's name for this machine's CPU, for build.prop's ABI list.
+____ANDROID_ABI := $(if $(filter x86_64,$(shell uname -m)),x86_64,arm64-v8a)
 ____INSTALL_LIBDIR_DX = $(____PREFIX_DX)/$(____LIBDIR)
 
 ____dalvikvm_bin_32 := $(____TOPDIR)/out/host/linux-x86/bin/dalvikvm
@@ -41,7 +44,9 @@ ____dalvikvm_bin_64 := $(____TOPDIR)/out/host/linux-x86/bin/dalvikvm64
 
 # while this *looks* portable, do note that ____LIBDIR is still distro specific
 __RPATH_BIN := \$${ORIGIN}/../$(____LIBDIR)/art/:\$${ORIGIN}/../$(____LIBDIR)/java/dex/art/natives
-__RPATH_LIB := \$${ORIGIN}
+# libraries look beside themselves and in the other of the two directories
+# the install puts them in: art/ and java/dex/art/natives/
+__RPATH_LIB := \$${ORIGIN}:\$${ORIGIN}/../../../../art:\$${ORIGIN}/../java/dex/art/natives
 
 __VERSION ?= 0.0.0
 
@@ -70,7 +75,7 @@ endif
 
 default: ____art_all
 
-____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw art-standalone.pc
+____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libandroid_runtime art-standalone.pc
 
 art-standalone.pc: art-standalone.pc.in
 	sed -e 's|@prefix@|$(____PREFIX)|g' \
@@ -87,7 +92,9 @@ install:
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libopenjdk.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libopenjdkjvm.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libandroidio.so \
-	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libjavacrypto.so
+	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libjavacrypto.so \
+	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libandroid_runtime.so \
+	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libbinder.so
 #
 # these are mostly internal libs which there's no point in versioning because they don't have any kind of stable ABI - so we just shove them in art/ namespace
 # even the libunwind is actually a fork of libunwind 1.1 with added stuff that will likely never be upstreamed, especially since google stopped using libunwind
@@ -125,11 +132,14 @@ endif
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/icu/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/icu/*)
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/tz/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/tz/*)
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/security/cacerts/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/security/cacerts/*)
+# the framework's resources, where the framework looks for them: /system,
+# which is ANDROID_ROOT here
+	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/framework/ $(wildcard $(____ANDROID_JAVA_DIR)/framework-res.apk)
+# what init loads from /system/build.prop on Android, for this machine's ABI
+	sed -e 's|@ABI@|$(____ANDROID_ABI)|g' $(____TOPDIR)/frameworks/mead/build.prop.in > $(____INSTALL_RUNTIME_ROOT)/build.prop
 #
 # packaging note: this should arguably be it's own package (together with out/host/linux-x86/bin/dx)
 	install -Dt $(____INSTALL_LIBDIR_DX)/java/ $(____TOPDIR)/out/host/linux-x86/framework/dx.jar
-# our stable C API for libandroidfw, used by ATL
-	install -Dt $(____INSTALL_INCLUDEDIR)/androidfw $(____TOPDIR)/libandroidfw/include/androidfw/androidfw_c_api.h
 
 	# install pkg-config file
 	mkdir -p $(____INSTALL_LIBDIR)/pkgconfig
