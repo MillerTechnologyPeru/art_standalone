@@ -21,6 +21,7 @@
 #include "ALog-priv.h"
 
 #include <string>
+#include <string.h>  // strerror_r, which bionic declares through other headers
 
 #include "JniConstants.h"
 #include "nativehelper/ScopedLocalRef.h"
