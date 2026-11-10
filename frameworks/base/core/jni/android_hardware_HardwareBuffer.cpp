@@ -32,7 +32,6 @@
 #include <binder/Parcel.h>
 
 #include <ui/GraphicBuffer.h>
-#include <private/gui/ComposerService.h>
 
 #include <hardware/gralloc1.h>
 #include <grallocusage/GrallocUsageConversion.h>
