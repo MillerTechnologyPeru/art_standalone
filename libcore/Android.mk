@@ -16,20 +16,8 @@
 LOCAL_PATH := $(call my-dir)
 
 #
-# Subprojects with separate makefiles
+# Only the native code builds here. The Java code comes from AOSP's build
+# of the same release.
 #
 
-subdirs := benchmarks tzdata ojluni tools/upstream metrictests
-subdir_makefiles := $(call all-named-subdir-makefiles,$(subdirs))
-
-#
-# Disable test modules if LIBCORE_SKIP_TESTS environment variable is set.
-#
-
-ifneq ($(LIBCORE_SKIP_TESTS),)
-$(info ********************************************************************************)
-$(info * libcore tests are skipped because environment variable LIBCORE_SKIP_TESTS=$(LIBCORE_SKIP_TESTS))
-$(info ********************************************************************************)
-endif
-
-include $(subdir_makefiles)
+include $(LOCAL_PATH)/NativeCode.mk
