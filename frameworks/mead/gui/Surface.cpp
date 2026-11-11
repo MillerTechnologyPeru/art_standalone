@@ -515,6 +515,15 @@ void mead_surface_set_native_window(ANativeWindow* window, uintptr_t nativeWindo
     static_cast<Surface*>(window)->setNativeWindow(nativeWindow);
 }
 
+uintptr_t mead_surface_get_native_window(ANativeWindow* window) {
+    uintptr_t nativeWindow = 0;
+    if (window == nullptr ||
+        window->perform(window, MEAD_SURFACE_GET_NATIVE_WINDOW, &nativeWindow) != android::NO_ERROR) {
+        return 0;
+    }
+    return nativeWindow;
+}
+
 void mead_surface_resize(ANativeWindow* window, uint32_t width, uint32_t height) {
     static_cast<Surface*>(window)->resize(width, height);
 }
