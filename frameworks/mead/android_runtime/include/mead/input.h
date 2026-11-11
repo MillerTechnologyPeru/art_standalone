@@ -50,6 +50,12 @@ int mead_input_send_motion(MeadInput* input, int32_t deviceId, int32_t source, i
                            uint32_t pointerCount, const int32_t* pointerIds,
                            const int32_t* toolTypes, uint64_t axisBits, const float* axisValues);
 
+/* Android's key code for a Linux evdev key code (the keyboard's, as Wayland
+ * reports it), through Android's Generic.kl key layout, as Android's input
+ * reader maps a keyboard's keys; 0 for none. The key layout is
+ * $ANDROID_ROOT/usr/keylayout/Generic.kl, loaded on first use. */
+int32_t mead_input_map_key(int32_t scanCode);
+
 /* A key character map (a .kcm file, Android's /system/usr/keychars) for an
  * input device, as an android.view.KeyCharacterMap (a local reference), or
  * NULL when it can't be loaded. */
