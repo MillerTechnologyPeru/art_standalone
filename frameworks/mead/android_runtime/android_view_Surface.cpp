@@ -2,8 +2,8 @@
  * android.view.Surface's natives over Mead's Surface (frameworks/mead/gui),
  * in place of Android 10's android_view_Surface.cpp, which talks to
  * SurfaceFlinger's buffer queues. A Surface here comes from Mead's display
- * bridge; one can't be made from a SurfaceTexture or a SurfaceControl, or
- * read from a Parcel, yet.
+ * bridge, directly or through a SurfaceControl (Mead's: a window); one
+ * can't be made from a SurfaceTexture or read from a Parcel yet.
  */
 
 #define LOG_TAG "Surface"
@@ -16,6 +16,8 @@
 #include <android_runtime/android_view_Surface.h>
 
 #include <gui/Surface.h>
+
+#include "MeadSurfaceControl.h"
 #include <ui/PixelFormat.h>
 #include <ui/PublicFormat.h>
 
@@ -206,14 +208,21 @@ static void nativeAllocateBuffers(JNIEnv*, jclass, jlong nativeObject) {
     if (surface != nullptr) surface->allocateBuffers();
 }
 
-static jlong nativeCreateFromSurfaceControl(JNIEnv* env, jclass, jlong) {
-    jniThrowException(env, kUnsupported, "Mead has no SurfaceControl yet");
-    return 0;
+// The surface of a SurfaceControl, Mead's: the one drawing to its window.
+static jlong nativeCreateFromSurfaceControl(JNIEnv*, jclass, jlong surfaceControlNativeObj) {
+    auto control = reinterpret_cast<MeadSurfaceControl*>(surfaceControlNativeObj);
+    if (control == nullptr || control->surface == nullptr) return 0;
+    control->surface->incStrong(&sRefBaseOwner);
+    return reinterpret_cast<jlong>(control->surface.get());
 }
 
-static jlong nativeGetFromSurfaceControl(JNIEnv* env, jclass, jlong, jlong) {
-    jniThrowException(env, kUnsupported, "Mead has no SurfaceControl yet");
-    return 0;
+static jlong nativeGetFromSurfaceControl(JNIEnv* env, jclass clazz, jlong nativeObject,
+                                         jlong surfaceControlNativeObj) {
+    auto control = reinterpret_cast<MeadSurfaceControl*>(surfaceControlNativeObj);
+    if (control != nullptr && reinterpret_cast<Surface*>(nativeObject) == control->surface.get()) {
+        return nativeObject;
+    }
+    return nativeCreateFromSurfaceControl(env, clazz, surfaceControlNativeObj);
 }
 
 static jlong nativeReadFromParcel(JNIEnv* env, jclass, jlong, jobject) {
@@ -370,6 +379,15 @@ int register_android_view_Surface(JNIEnv* env) {
 }
 
 } // namespace android
+
+// For Mead's display bridge: the surface an android.view.Surface draws to,
+// as an ANativeWindow, without a reference; NULL for none.
+extern "C" ANativeWindow* mead_surface_from_java(JNIEnv* env, jobject surface) {
+    if (surface == nullptr || !android::android_view_Surface_isInstanceOf(env, surface)) {
+        return nullptr;
+    }
+    return android::android_view_Surface_getNativeWindow(env, surface).get();
+}
 
 // For Mead's display bridge: an android.view.Surface for a surface from
 // mead_surface_create, holding its own reference.
