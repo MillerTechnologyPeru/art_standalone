@@ -13,6 +13,9 @@
 #include <log/log.h>
 
 #include "android_view_InputChannel.h"
+#include "android_view_KeyCharacterMap.h"
+
+#include <input/KeyCharacterMap.h>
 
 namespace android {
 
@@ -76,6 +79,16 @@ jobject mead_input_open(JNIEnv* env, const char* name, MeadInput** out) {
     env->DeleteLocalRef(server);
     *out = input;
     return client;
+}
+
+jobject mead_input_load_key_character_map(JNIEnv* env, int32_t deviceId, const char* path) {
+    android::sp<android::KeyCharacterMap> map;
+    if (android::KeyCharacterMap::load(path, android::KeyCharacterMap::FORMAT_BASE, &map) !=
+        android::OK) {
+        ALOGE("Can't load the key character map %s", path);
+        return nullptr;
+    }
+    return android::android_view_KeyCharacterMap_create(env, deviceId, map);
 }
 
 void mead_input_close(MeadInput* input) {
