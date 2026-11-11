@@ -42,6 +42,7 @@
 // android_util_Binder.cpp and some of the graphics JNI define their register
 // functions outside the namespace.
 extern int register_android_os_Binder(JNIEnv* env);
+extern int register_android_os_Process(JNIEnv* env);
 extern int register_android_hardware_HardwareBuffer(JNIEnv* env);
 extern int register_android_graphics_Bitmap(JNIEnv* env);
 extern int register_android_graphics_BitmapFactory(JNIEnv* env);
@@ -77,6 +78,8 @@ extern int register_android_view_RenderNodeAnimator(JNIEnv* env);
 extern int register_android_view_DisplayListCanvas(JNIEnv* env);
 extern int register_android_view_ThreadedRenderer(JNIEnv* env);
 extern int register_android_view_Surface(JNIEnv* env);
+extern int register_android_view_SurfaceControl(JNIEnv* env);
+extern int register_android_view_SurfaceSession(JNIEnv* env);
 extern int register_android_os_MessageQueue(JNIEnv* env);
 extern int register_android_view_InputChannel(JNIEnv* env);
 extern int register_android_view_InputEventReceiver(JNIEnv* env);
@@ -106,6 +109,47 @@ extern int register_android_graphics_text_MeasuredText(JNIEnv* env);
 extern int register_android_graphics_text_LineBreaker(JNIEnv* env);
 
 JavaVM* AndroidRuntime::mJavaVM = nullptr;
+
+static AndroidRuntime* gCurRuntime = nullptr;
+
+// The process's AndroidRuntime, which app_process makes on Android, here
+// made as libandroid_runtime loads. Its argument block, which setArgv0
+// writes the process's new name into, is a buffer of its own: Mead's command
+// line stays as it was.
+static char gArgBlock[256];
+
+class MeadRuntime : public AndroidRuntime {
+public:
+    MeadRuntime() : AndroidRuntime(gArgBlock, sizeof(gArgBlock)) {}
+    void onStarted() override {}
+};
+
+AndroidRuntime::AndroidRuntime(char* argBlockStart, const size_t argBlockLength)
+      : mExitWithoutCleanup(false), mArgBlockStart(argBlockStart), mArgBlockLength(argBlockLength) {
+    mOptions.setCapacity(20);
+    gCurRuntime = this;
+}
+
+AndroidRuntime::~AndroidRuntime() {}
+
+void AndroidRuntime::onVmCreated(JNIEnv*) {}
+
+/*static*/ AndroidRuntime* AndroidRuntime::getRuntime() {
+    return gCurRuntime;
+}
+
+void AndroidRuntime::setArgv0(const char* argv0, bool setProcName) {
+    if (setProcName) {
+        int len = strlen(argv0);
+        if (len < 15) {
+            pthread_setname_np(pthread_self(), argv0);
+        } else {
+            pthread_setname_np(pthread_self(), argv0 + len - 15);
+        }
+    }
+    memset(mArgBlockStart, 0, mArgBlockLength);
+    strlcpy(mArgBlockStart, argv0, mArgBlockLength);
+}
 
 /*static*/ int AndroidRuntime::registerNativeMethods(JNIEnv* env, const char* className,
                                                     const JNINativeMethod* gMethods,
@@ -150,6 +194,85 @@ JavaVM* AndroidRuntime::mJavaVM = nullptr;
     return result;
 }
 
+// ClassLoaderFactory's linker namespace for an app's class loader: on Android
+// libnativeloader makes one per app, to keep its native libraries apart.
+// Here an app's native libraries load through Mead's loader (MeadDLBio),
+// which has no namespaces, so there's nothing to make; null means success.
+static jstring createClassloaderNamespace(JNIEnv*, jclass, jobject, jint, jstring, jstring,
+                                          jboolean, jstring) {
+    return nullptr;
+}
+
+static int register_com_android_internal_os_ClassLoaderFactory(JNIEnv* env) {
+    static const JNINativeMethod methods[] = {
+            {"createClassloaderNamespace",
+             "(Ljava/lang/ClassLoader;ILjava/lang/String;Ljava/lang/String;ZLjava/lang/String;)Ljava/lang/String;",
+             (void*)createClassloaderNamespace},
+    };
+    return AndroidRuntime::registerNativeMethods(env, "com/android/internal/os/ClassLoaderFactory",
+                                                 methods, NELEM(methods));
+}
+
+// GraphicsEnvironment: Android's choice of GPU driver (updatable drivers,
+// ANGLE) and of debug layers, through libgraphicsenv. Here the driver is the
+// system's (Mesa's), so there's nothing to choose: no driver path, no
+// ANGLE, no layers.
+static jint getCanLoadSystemLibraries(JNIEnv*, jclass) {
+    return 0;
+}
+
+static jboolean getShouldUseAngle(JNIEnv*, jclass, jstring) {
+    return JNI_FALSE;
+}
+
+// For each setting, which takes the arguments its signature says and has
+// nothing to do with them.
+static void graphicsEnvironmentNoOp(JNIEnv*, jclass) {}
+
+static int register_android_os_GraphicsEnvironment(JNIEnv* env) {
+    static const JNINativeMethod methods[] = {
+            {"getCanLoadSystemLibraries", "()I", (void*)getCanLoadSystemLibraries},
+            {"setDriverPathAndSphalLibraries", "(Ljava/lang/String;Ljava/lang/String;)V",
+             (void*)graphicsEnvironmentNoOp},
+            {"setGpuStats", "(Ljava/lang/String;Ljava/lang/String;JJLjava/lang/String;I)V",
+             (void*)graphicsEnvironmentNoOp},
+            {"setAngleInfo",
+             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/io/FileDescriptor;JJ)V",
+             (void*)graphicsEnvironmentNoOp},
+            {"getShouldUseAngle", "(Ljava/lang/String;)Z", (void*)getShouldUseAngle},
+            {"setLayerPaths", "(Ljava/lang/ClassLoader;Ljava/lang/String;)V",
+             (void*)graphicsEnvironmentNoOp},
+            {"setDebugLayers", "(Ljava/lang/String;)V", (void*)graphicsEnvironmentNoOp},
+            {"setDebugLayersGLES", "(Ljava/lang/String;)V", (void*)graphicsEnvironmentNoOp},
+            {"hintActivityLaunch", "()V", (void*)graphicsEnvironmentNoOp},
+    };
+    return AndroidRuntime::registerNativeMethods(env, "android/os/GraphicsEnvironment", methods,
+                                                 NELEM(methods));
+}
+
+// EventLog: Android's binary events buffer, which this tree's older liblog
+// doesn't have. Events are accepted and kept nowhere; reading finds none.
+static jint writeEvent(JNIEnv*, jclass) {
+    return 0;
+}
+
+static void readEvents(JNIEnv*, jclass) {}
+
+static int register_android_util_EventLog(JNIEnv* env) {
+    // Each takes the arguments its signature says, which these never read.
+    static const JNINativeMethod methods[] = {
+            {"writeEvent", "(II)I", (void*)writeEvent},
+            {"writeEvent", "(IJ)I", (void*)writeEvent},
+            {"writeEvent", "(IF)I", (void*)writeEvent},
+            {"writeEvent", "(ILjava/lang/String;)I", (void*)writeEvent},
+            {"writeEvent", "(I[Ljava/lang/Object;)I", (void*)writeEvent},
+            {"readEvents", "([ILjava/util/Collection;)V", (void*)readEvents},
+            {"readEventsOnWrapping", "([IJLjava/util/Collection;)V", (void*)readEvents},
+    };
+    return AndroidRuntime::registerNativeMethods(env, "android/util/EventLog", methods,
+                                                 NELEM(methods));
+}
+
 struct RegJNIRec {
     int (*mProc)(JNIEnv*);
     const char* mName;
@@ -166,6 +289,10 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_content_XmlBlock),
     REG_JNI(register_android_content_res_ApkAssets),
     REG_JNI(register_android_os_SystemProperties),
+    REG_JNI(register_android_os_Process),
+    REG_JNI(register_com_android_internal_os_ClassLoaderFactory),
+    REG_JNI(register_android_os_GraphicsEnvironment),
+    REG_JNI(register_android_util_EventLog),
     REG_JNI(register_android_os_Binder),
     REG_JNI(register_android_os_Parcel),
     REG_JNI(register_android_os_Trace),
@@ -175,6 +302,8 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_view_DisplayListCanvas),
     REG_JNI(register_android_view_ThreadedRenderer),
     REG_JNI(register_android_view_Surface),
+    REG_JNI(register_android_view_SurfaceControl),
+    REG_JNI(register_android_view_SurfaceSession),
     REG_JNI(register_android_graphics_ColorSpace),
     REG_JNI(register_android_graphics_Graphics),
     REG_JNI(register_android_graphics_Bitmap),
@@ -257,6 +386,8 @@ static void loadBuildProperties() {
 
 extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     loadBuildProperties();
+    static MeadRuntime* runtime = new MeadRuntime();
+    (void)runtime;
     AndroidRuntime::mJavaVM = vm;
     JNIEnv* env = AndroidRuntime::getJNIEnv();
     if (env == nullptr) {
