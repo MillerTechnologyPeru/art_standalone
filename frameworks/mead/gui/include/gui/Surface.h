@@ -36,6 +36,9 @@ public:
     // The size of the buffers handed out from now on.
     void resize(uint32_t width, uint32_t height);
 
+    // Hands back a buffer presented with presentBuffer.
+    void releaseBuffer(int slot);
+
     // What EGL draws to for this surface (see mead_surface_set_native_window).
     void setNativeWindow(uintptr_t window);
 
@@ -82,6 +85,8 @@ private:
     struct Slot {
         sp<GraphicBuffer> buffer;
         bool dequeued = false;
+        // Presented with presentBuffer, until the bridge releases it.
+        bool held = false;
     };
 
     static int hook_setSwapInterval(ANativeWindow* window, int interval);
