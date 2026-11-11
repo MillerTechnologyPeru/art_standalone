@@ -1,9 +1,10 @@
 /*
- * Android's /system is ANDROID_ROOT here: the framework, the core library and
- * apps read /system paths written into Android's code (/system/fonts,
- * /system/etc/fonts.xml, /system/etc/permissions...), and on Linux there is
- * no /system, or one that isn't Android's. The core library's file natives
- * take such paths as paths in ANDROID_ROOT; every other path is as it was.
+ * Android's /system is ANDROID_ROOT here, and its /data ANDROID_DATA: the
+ * framework, the core library and apps read paths written into Android's
+ * code (/system/fonts, /system/etc/fonts.xml, /data for SQLite's page
+ * size...), and on Linux there is no /system or /data, or ones that aren't
+ * Android's. The core library's file natives take such paths as paths in
+ * ANDROID_ROOT and ANDROID_DATA; every other path is as it was.
  */
 
 #ifndef MEAD_SYSTEM_PATH_H
@@ -14,18 +15,29 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* path, or when it is /system or in it and ANDROID_ROOT is elsewhere, the
- * same path in ANDROID_ROOT, written to buffer. */
-static inline const char* mead_system_path(const char* path, char* buffer, size_t size) {
-    if (path == NULL || strncmp(path, "/system", 7) != 0 || (path[7] != '\0' && path[7] != '/')) {
+/* path, or when it is in Android's top-level directory android (as
+ * "/system", of length length) and variable names somewhere else, the same
+ * path there, written to buffer; NULL when it isn't in android. */
+static inline const char* mead_android_path(const char* path, const char* android, size_t length,
+                                            const char* variable, char* buffer, size_t size) {
+    if (strncmp(path, android, length) != 0 || (path[length] != '\0' && path[length] != '/')) {
+        return NULL;
+    }
+    const char* root = getenv(variable);
+    if (root == NULL || root[0] == '\0' || strcmp(root, android) == 0) {
         return path;
     }
-    const char* root = getenv("ANDROID_ROOT");
-    if (root == NULL || root[0] == '\0' || strcmp(root, "/system") == 0) {
-        return path;
-    }
-    int written = snprintf(buffer, size, "%s%s", root, path + 7);
+    int written = snprintf(buffer, size, "%s%s", root, path + length);
     return written < 0 || (size_t)written >= size ? path : buffer;
+}
+
+/* path, or when it is /system or /data or in them and ANDROID_ROOT or
+ * ANDROID_DATA is elsewhere, the same path there, written to buffer. */
+static inline const char* mead_system_path(const char* path, char* buffer, size_t size) {
+    if (path == NULL) return path;
+    const char* mapped = mead_android_path(path, "/system", 7, "ANDROID_ROOT", buffer, size);
+    if (mapped == NULL) mapped = mead_android_path(path, "/data", 5, "ANDROID_DATA", buffer, size);
+    return mapped != NULL ? mapped : path;
 }
 
 #ifdef __cplusplus
