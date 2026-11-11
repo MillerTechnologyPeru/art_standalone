@@ -18,6 +18,7 @@
 #include <nativehelper/JNIHelp.h>
 
 #include <jni.h>
+#include <malloc.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,6 +82,23 @@ extern int register_android_view_Surface(JNIEnv* env);
 extern int register_android_view_SurfaceControl(JNIEnv* env);
 extern int register_android_view_SurfaceSession(JNIEnv* env);
 extern int register_android_os_MessageQueue(JNIEnv* env);
+extern int register_android_util_PathParser(JNIEnv* env);
+extern int register_android_animation_PropertyValuesHolder(JNIEnv* env);
+extern int register_android_text_AndroidCharacter(JNIEnv* env);
+extern int register_android_text_Hyphenator(JNIEnv* env);
+extern int register_android_view_PointerIcon(JNIEnv* env);
+extern int register_com_android_internal_view_animation_NativeInterpolatorFactoryHelper(JNIEnv* env);
+extern int register_android_os_FileObserver(JNIEnv* env);
+extern int register_android_os_MemoryFile(JNIEnv* env);
+extern int register_android_os_SharedMemory(JNIEnv* env);
+extern int register_android_content_res_Configuration(JNIEnv* env);
+extern int register_android_view_InputEventSender(JNIEnv* env);
+extern int register_android_server_NetworkManagementSocketTagger(JNIEnv* env);
+extern int register_com_android_internal_util_VirtualRefBasePtr(JNIEnv* env);
+extern int register_android_database_CursorWindow(JNIEnv* env);
+extern int register_android_database_SQLiteConnection(JNIEnv* env);
+extern int register_android_database_SQLiteGlobal(JNIEnv* env);
+extern int register_android_database_SQLiteDebug(JNIEnv* env);
 extern int register_android_view_InputChannel(JNIEnv* env);
 extern int register_android_view_InputEventReceiver(JNIEnv* env);
 extern int register_android_view_KeyEvent(JNIEnv* env);
@@ -273,6 +291,26 @@ static int register_android_util_EventLog(JNIEnv* env) {
                                                  NELEM(methods));
 }
 
+// ActivityThread's: bionic's mallopt(M_PURGE) is glibc's malloc_trim. There's
+// no graphics memory dump, and no zygote whose children are profiled.
+static void purgePendingResources(JNIEnv*, jclass) {
+    malloc_trim(0);
+}
+
+static void dumpGraphicsInfo(JNIEnv*, jclass, jobject) {}
+
+static void initZygoteChildHeapProfiling(JNIEnv*, jclass) {}
+
+static int register_android_app_ActivityThread(JNIEnv* env) {
+    static const JNINativeMethod methods[] = {
+            {"nPurgePendingResources", "()V", (void*)purgePendingResources},
+            {"nDumpGraphicsInfo", "(Ljava/io/FileDescriptor;)V", (void*)dumpGraphicsInfo},
+            {"nInitZygoteChildHeapProfiling", "()V", (void*)initZygoteChildHeapProfiling},
+    };
+    return AndroidRuntime::registerNativeMethods(env, "android/app/ActivityThread", methods,
+                                                 NELEM(methods));
+}
+
 struct RegJNIRec {
     int (*mProc)(JNIEnv*);
     const char* mName;
@@ -293,6 +331,7 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_com_android_internal_os_ClassLoaderFactory),
     REG_JNI(register_android_os_GraphicsEnvironment),
     REG_JNI(register_android_util_EventLog),
+    REG_JNI(register_android_app_ActivityThread),
     REG_JNI(register_android_os_Binder),
     REG_JNI(register_android_os_Parcel),
     REG_JNI(register_android_os_Trace),
@@ -340,6 +379,23 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_graphics_text_LineBreaker),
     REG_JNI(register_android_hardware_HardwareBuffer),
     REG_JNI(register_android_os_MessageQueue),
+    REG_JNI(register_android_util_PathParser),
+    REG_JNI(register_android_animation_PropertyValuesHolder),
+    REG_JNI(register_android_text_AndroidCharacter),
+    REG_JNI(register_android_text_Hyphenator),
+    REG_JNI(register_android_view_PointerIcon),
+    REG_JNI(register_com_android_internal_view_animation_NativeInterpolatorFactoryHelper),
+    REG_JNI(register_android_os_FileObserver),
+    REG_JNI(register_android_os_MemoryFile),
+    REG_JNI(register_android_os_SharedMemory),
+    REG_JNI(register_android_content_res_Configuration),
+    REG_JNI(register_android_view_InputEventSender),
+    REG_JNI(register_android_server_NetworkManagementSocketTagger),
+    REG_JNI(register_com_android_internal_util_VirtualRefBasePtr),
+    REG_JNI(register_android_database_CursorWindow),
+    REG_JNI(register_android_database_SQLiteConnection),
+    REG_JNI(register_android_database_SQLiteGlobal),
+    REG_JNI(register_android_database_SQLiteDebug),
     REG_JNI(register_android_view_InputChannel),
     REG_JNI(register_android_view_InputEventReceiver),
     REG_JNI(register_android_view_KeyEvent),
