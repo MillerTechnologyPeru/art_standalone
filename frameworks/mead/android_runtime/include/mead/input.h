@@ -23,6 +23,10 @@ typedef struct MeadInput MeadInput;
  * *out, or NULL with *out NULL. */
 jobject mead_input_open(JNIEnv* env, const char* name, MeadInput** out);
 
+/* The server end of a channel the caller opened (an android.view.InputChannel,
+ * as the window manager keeps one), to publish to; NULL for none. */
+MeadInput* mead_input_from_channel(JNIEnv* env, jobject serverChannel);
+
 /* Closes the server end; the client sees its channel closed. */
 void mead_input_close(MeadInput* input);
 
