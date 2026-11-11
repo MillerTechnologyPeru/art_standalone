@@ -53,6 +53,13 @@ void mead_gui_set_native_display(uint32_t kind, void* display);
 /* The windowing connection set, or kind 0 and NULL. */
 void mead_gui_get_native_display(uint32_t* kind, void** display);
 
+/* Makes the bridge the vsync source from now on, without the timer: when a
+ * display event receiver wants vsync, libgui calls request(context), on the
+ * thread asking, and the bridge answers with mead_gui_vsync once the display
+ * has refreshed (a compositor's frame callback). request is called again
+ * after each vsync while receivers still want it. */
+void mead_gui_set_vsync_request(void (*request)(void* context), void* context);
+
 /* Receives a surface's frames. */
 typedef struct MeadSurfaceCallbacks {
     void* context;
@@ -60,7 +67,17 @@ typedef struct MeadSurfaceCallbacks {
      * stride pixels, readable until it returns. */
     void (*present)(void* context, const void* pixels, uint32_t width, uint32_t height,
                     uint32_t stride, int32_t format);
+    /* In place of present, when set: a frame was queued in buffer slot, which
+     * is the shared memory at fd (a memfd, from its start), width×height in
+     * format, rows of stride pixels; pixels is its mapping, readable until
+     * this returns. The buffer isn't reused until it's handed back with
+     * mead_surface_release_buffer, so a compositor can read it in place. */
+    void (*presentBuffer)(void* context, int32_t slot, int fd, uint32_t width, uint32_t height,
+                          uint32_t stride, int32_t format, const void* pixels);
 } MeadSurfaceCallbacks;
+
+/* Hands back a buffer presentBuffer gave, which the surface may now reuse. */
+void mead_surface_release_buffer(struct ANativeWindow* surface, int32_t slot);
 
 /* A surface of width×height in format (HAL_PIXEL_FORMAT_*), whose frames go
  * to callbacks. It holds one reference, which ANativeWindow_release drops. */
