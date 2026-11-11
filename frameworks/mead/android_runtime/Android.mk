@@ -44,6 +44,25 @@ LOCAL_SRC_FILES := \
     ../../base/core/jni/android_util_StringBlock.cpp \
     ../../base/core/jni/android_util_XmlBlock.cpp \
     ../../base/core/jni/android_util_Process.cpp \
+    ../../base/core/jni/android_server_NetworkManagementSocketTagger.cpp \
+    ../../base/core/jni/android_util_FileObserver.cpp \
+    ../../base/core/jni/android_animation_PropertyValuesHolder.cpp \
+    ../../base/core/jni/android_content_res_Configuration.cpp \
+    ../../base/core/jni/android_os_MemoryFile.cpp \
+    ../../base/core/jni/android_os_SharedMemory.cpp \
+    ../../base/core/jni/android_text_AndroidCharacter.cpp \
+    ../../base/core/jni/android_text_Hyphenator.cpp \
+    ../../base/core/jni/android_util_PathParser.cpp \
+    ../../base/core/jni/android_view_InputEventSender.cpp \
+    ../../base/core/jni/android_view_PointerIcon.cpp \
+    ../../base/core/jni/com_android_internal_view_animation_NativeInterpolatorFactoryHelper.cpp \
+    ../../base/core/jni/com_android_internal_util_VirtualRefBasePtr.cpp \
+    ../../base/core/jni/android_database_CursorWindow.cpp \
+    ../../base/core/jni/android_database_SQLiteCommon.cpp \
+    ../../base/core/jni/android_database_SQLiteConnection.cpp \
+    ../../base/core/jni/android_database_SQLiteDebug.cpp \
+    ../../base/core/jni/android_database_SQLiteGlobal.cpp \
+    ../../../libandroidfw/CursorWindow.cpp \
     ../../base/core/jni/android_hardware_HardwareBuffer.cpp \
     ../../base/core/jni/android_nio_utils.cpp \
     ../../base/core/jni/android_graphics_Canvas.cpp \
@@ -93,6 +112,8 @@ LOCAL_C_INCLUDES := \
     external/libjpeg-turbo \
     frameworks/mead/egl/include \
     system/core/libmeminfo/include \
+    external/sqlite/dist \
+    external/sqlite/android \
     system/core/libprocessgroup/include \
     hardware/libhardware/include \
     system/core/libgrallocusage/include \
@@ -105,7 +126,9 @@ LOCAL_CFLAGS := -Wall -Wextra -Wno-unused-parameter -DLIBGUI_NO_BUFFER_QUEUE \
     -DENABLE_STRING8_OBSOLETE_METHODS -DENABLE_STRING16_OBSOLETE_METHODS \
     -include mead/android10_compat.h
 LOCAL_CPPFLAGS := -std=gnu++17
-LOCAL_STATIC_LIBRARIES := libmeminfo libprocessgroup
+LOCAL_STATIC_LIBRARIES := libmeminfo libprocessgroup libsqlite3_android libsqlite
+# Android's SQLite stays inside, apart from the system's libsqlite3.
+LOCAL_LDFLAGS := -Wl,--exclude-libs,libsqlite.a -Wl,--exclude-libs,libsqlite3_android.a
 LOCAL_SHARED_LIBRARIES := \
     libandroidfw \
     libbase \
@@ -114,13 +137,14 @@ LOCAL_SHARED_LIBRARIES := \
     libgui \
     libhwui \
     libinput \
+    libmead_android10_compat \
     liblog \
     libnativehelper \
     libnativewindow \
     libui \
     libutils \
     libziparchive
-LOCAL_LDLIBS := -lpthread -ldl -lz
+LOCAL_LDLIBS := -lpthread -ldl -lz -licuuc -licui18n
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_SHARED_LIBRARY)
