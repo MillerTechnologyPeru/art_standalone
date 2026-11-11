@@ -115,6 +115,41 @@ struct ANativeWindow* mead_gui_create_window(const char* name, uint32_t width, u
 /* The bridge's destroy, for a window from mead_gui_create_window. */
 void mead_gui_destroy_window(struct ANativeWindow* window);
 
+/* A layer's state in its parent window, as SurfaceControl transactions set
+ * it: its place in the parent's surface and its size, in pixels; its order,
+ * under the parent's content when negative (a SurfaceView's hole) and over
+ * it otherwise; and whether it shows. */
+typedef struct MeadLayerState {
+    int32_t x;
+    int32_t y;
+    uint32_t width;
+    uint32_t height;
+    int32_t z;
+    int32_t shown;
+} MeadLayerState;
+
+/* Layers for SurfaceControl: a child surface of a window (a SurfaceView's),
+ * which the bridge makes. create returns a surface from mead_surface_create
+ * for a new layer of width×height pixels named name in the window whose
+ * surface parent is, hidden, with one reference for the caller, or NULL;
+ * update applies a transaction's state to it. A layer goes, as a window
+ * does, with mead_gui_destroy_window. */
+typedef struct MeadLayerCallbacks {
+    void* context;
+    struct ANativeWindow* (*create)(void* context, struct ANativeWindow* parent, const char* name,
+                                    uint32_t width, uint32_t height);
+    void (*update)(void* context, struct ANativeWindow* layer, const MeadLayerState* state);
+} MeadLayerCallbacks;
+
+void mead_gui_set_layer_callbacks(const MeadLayerCallbacks* callbacks);
+
+/* A layer from the bridge's create, or NULL without a bridge. */
+struct ANativeWindow* mead_gui_create_layer(struct ANativeWindow* parent, const char* name,
+                                            uint32_t width, uint32_t height);
+
+/* The bridge's update, for a layer from mead_gui_create_layer. */
+void mead_gui_update_layer(struct ANativeWindow* layer, const MeadLayerState* state);
+
 /* Resizes a surface made by mead_surface_create: the buffers it hands out
  * from now on are width×height. */
 void mead_surface_resize(struct ANativeWindow* surface, uint32_t width, uint32_t height);
