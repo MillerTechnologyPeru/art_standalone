@@ -13,6 +13,7 @@ LOCAL_SRC_FILES := \
     DisplayEventReceiver.cpp \
     Surface.cpp \
     SurfaceComposerClient.cpp \
+    Windows.cpp \
     ../../native/libs/gui/SyncFeatures.cpp
 libgui_includes := \
     frameworks/mead/gui/include \
