@@ -145,7 +145,7 @@ void Surface::resize(uint32_t width, uint32_t height) {
 void Surface::allocateBuffers() {
     std::lock_guard<std::mutex> lock(mMutex);
     for (Slot& slot : mSlots) {
-        if (!slot.dequeued) allocate(&slot);
+        if (!slot.dequeued && !slot.held) allocate(&slot);
     }
 }
 
@@ -155,7 +155,7 @@ int Surface::dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd) {
     mLastDequeueStartTime = start;
     auto free = [this] {
         for (const Slot& slot : mSlots) {
-            if (!slot.dequeued) return true;
+            if (!slot.dequeued && !slot.held) return true;
         }
         return false;
     };
@@ -165,7 +165,7 @@ int Surface::dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd) {
         return TIMED_OUT;
     }
     for (Slot& slot : mSlots) {
-        if (slot.dequeued) continue;
+        if (slot.dequeued || slot.held) continue;
         status_t error = allocate(&slot);
         if (error != NO_ERROR) return error;
         slot.dequeued = true;
@@ -191,13 +191,35 @@ int Surface::queueBuffer(ANativeWindowBuffer* buffer, int fenceFd) {
     nsecs_t start = systemTime(SYSTEM_TIME_MONOTONIC);
     waitAndClose(fenceFd);
     sp<GraphicBuffer> queued;
+    int queuedSlot;
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        int slot = slotOf(buffer);
-        if (slot < 0 || !mSlots[slot].dequeued) return BAD_VALUE;
-        queued = mSlots[slot].buffer;
+        queuedSlot = slotOf(buffer);
+        if (queuedSlot < 0 || !mSlots[queuedSlot].dequeued) return BAD_VALUE;
+        queued = mSlots[queuedSlot].buffer;
     }
-    if (mCallbacks.present != nullptr) {
+    bool held = false;
+    if (mCallbacks.presentBuffer != nullptr) {
+        void* pixels = nullptr;
+        status_t error = queued->lock(GraphicBuffer::USAGE_SW_READ_OFTEN, &pixels);
+        if (error == NO_ERROR) {
+            // The buffer's memfd, from Mead's gralloc's handle.
+            const native_handle_t* handle = queued->handle;
+            int fd = handle != nullptr && handle->numFds > 0 ? handle->data[0] : -1;
+            {
+                // Held before the bridge sees it, which may release it at once.
+                std::lock_guard<std::mutex> lock(mMutex);
+                mSlots[queuedSlot].held = true;
+            }
+            held = true;
+            mCallbacks.presentBuffer(mCallbacks.context, queuedSlot, fd, queued->getWidth(),
+                                     queued->getHeight(), queued->getStride(),
+                                     queued->getPixelFormat(), pixels);
+            queued->unlock();
+        } else {
+            ALOGE("Locking a queued buffer failed: %d", error);
+        }
+    } else if (mCallbacks.present != nullptr) {
         void* pixels = nullptr;
         status_t error = queued->lock(GraphicBuffer::USAGE_SW_READ_OFTEN, &pixels);
         if (error == NO_ERROR) {
@@ -212,6 +234,7 @@ int Surface::queueBuffer(ANativeWindowBuffer* buffer, int fenceFd) {
     std::lock_guard<std::mutex> lock(mMutex);
     int slot = slotOf(buffer);
     if (slot >= 0) mSlots[slot].dequeued = false;
+    (void)held;
     mLastQueued = queued;
     mFrameNumber++;
     mLastQueueDuration = systemTime(SYSTEM_TIME_MONOTONIC) - start;
@@ -353,6 +376,22 @@ int Surface::perform(int operation, va_list args) {
         case NATIVE_WINDOW_GET_NEXT_FRAME_ID:
             *va_arg(args, uint64_t*) = mFrameNumber + 1;
             return NO_ERROR;
+        case NATIVE_WINDOW_LOCK: {
+            // ANativeWindow_lock's: under the lock perform holds, which lock()
+            // doesn't take.
+            ANativeWindow_Buffer* outBuffer = va_arg(args, ANativeWindow_Buffer*);
+            ARect* inOutDirtyBounds = va_arg(args, ARect*);
+            mMutex.unlock();
+            status_t result = Surface::lock(outBuffer, inOutDirtyBounds);
+            mMutex.lock();
+            return result;
+        }
+        case NATIVE_WINDOW_UNLOCK_AND_POST: {
+            mMutex.unlock();
+            status_t result = unlockAndPost();
+            mMutex.lock();
+            return result;
+        }
         case MEAD_SURFACE_GET_NATIVE_WINDOW:
             *va_arg(args, uintptr_t*) = mNativeWindow;
             return NO_ERROR;
@@ -363,6 +402,13 @@ int Surface::perform(int operation, va_list args) {
         default:
             return INVALID_OPERATION;
     }
+}
+
+void Surface::releaseBuffer(int slot) {
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (slot < 0 || static_cast<size_t>(slot) >= mSlots.size()) return;
+    mSlots[slot].held = false;
+    mFreed.notify_one();
 }
 
 void Surface::setNativeWindow(uintptr_t window) {
@@ -459,6 +505,10 @@ ANativeWindow* mead_surface_create(uint32_t width, uint32_t height, int32_t form
     Surface* surface = new Surface(width, height, format, callbacks ? *callbacks : none);
     surface->incStrong(nullptr);
     return surface;
+}
+
+void mead_surface_release_buffer(ANativeWindow* window, int32_t slot) {
+    static_cast<Surface*>(window)->releaseBuffer(slot);
 }
 
 void mead_surface_set_native_window(ANativeWindow* window, uintptr_t nativeWindow) {
