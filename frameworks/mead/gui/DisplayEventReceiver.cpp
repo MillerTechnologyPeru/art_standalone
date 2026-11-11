@@ -33,6 +33,10 @@ struct DisplayEvents {
     std::set<DisplayEventReceiver*> receivers;
     bool timerStarted = false;
     bool bridgeVsync = false;
+    // The bridge's vsync request, when it's the vsync source.
+    void (*request)(void*) = nullptr;
+    void* requestContext = nullptr;
+    bool requested = false;
     uint32_t vsyncCount = 0;
 
     static DisplayEvents& get() {
@@ -54,6 +58,18 @@ struct DisplayEvents {
             if (receiver->mVsyncRate > 0 || receiver->mVsyncRequested) return true;
         }
         return false;
+    }
+
+    // Under mutex: whether to ask the bridge for vsync, once, until it comes.
+    bool shouldRequest() {
+        if (request == nullptr || requested || !wantsVsync()) return false;
+        requested = true;
+        return true;
+    }
+
+    // Asks the bridge, without the mutex held: it may call back.
+    void askBridge() {
+        if (request != nullptr) request(requestContext);
     }
 
     // Under mutex.
@@ -162,18 +178,28 @@ ssize_t DisplayEventReceiver::getEvents(Event* events, size_t count) {
 
 status_t DisplayEventReceiver::setVsyncRate(uint32_t count) {
     DisplayEvents& events = DisplayEvents::get();
-    std::lock_guard<std::mutex> lock(events.mutex);
-    mVsyncRate = count;
-    mVsyncCount = 0;
-    events.wanted.notify_all();
+    bool ask;
+    {
+        std::lock_guard<std::mutex> lock(events.mutex);
+        mVsyncRate = count;
+        mVsyncCount = 0;
+        events.wanted.notify_all();
+        ask = events.shouldRequest();
+    }
+    if (ask) events.askBridge();
     return NO_ERROR;
 }
 
 status_t DisplayEventReceiver::requestNextVsync() {
     DisplayEvents& events = DisplayEvents::get();
-    std::lock_guard<std::mutex> lock(events.mutex);
-    mVsyncRequested = true;
-    events.wanted.notify_all();
+    bool ask;
+    {
+        std::lock_guard<std::mutex> lock(events.mutex);
+        mVsyncRequested = true;
+        events.wanted.notify_all();
+        ask = events.shouldRequest();
+    }
+    if (ask) events.askBridge();
     return NO_ERROR;
 }
 
@@ -220,10 +246,31 @@ void mead_gui_get_display(MeadDisplay* display) {
 
 void mead_gui_vsync(int64_t timestamp) {
     DisplayEvents& events = DisplayEvents::get();
-    std::lock_guard<std::mutex> lock(events.mutex);
-    if (!events.bridgeVsync) {
-        events.bridgeVsync = true;
-        events.wanted.notify_all();
+    bool ask;
+    {
+        std::lock_guard<std::mutex> lock(events.mutex);
+        if (!events.bridgeVsync) {
+            events.bridgeVsync = true;
+            events.wanted.notify_all();
+        }
+        events.requested = false;
+        events.vsync(timestamp);
+        ask = events.shouldRequest();
     }
-    events.vsync(timestamp);
+    if (ask) events.askBridge();
+}
+
+void mead_gui_set_vsync_request(void (*request)(void* context), void* context) {
+    DisplayEvents& events = DisplayEvents::get();
+    bool ask;
+    {
+        std::lock_guard<std::mutex> lock(events.mutex);
+        events.request = request;
+        events.requestContext = context;
+        events.bridgeVsync = true;
+        events.requested = false;
+        events.wanted.notify_all();
+        ask = events.shouldRequest();
+    }
+    if (ask) events.askBridge();
 }
