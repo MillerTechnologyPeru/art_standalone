@@ -13,8 +13,10 @@
 #include <string.h>
 
 /* What bionic's headers bring in with others, and glibc's don't:
- * CLOCK_MONOTONIC, dprintf, malloc and free, open's flags. */
+ * CLOCK_MONOTONIC, dprintf, malloc and free, open's flags, the integer
+ * limits. */
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
