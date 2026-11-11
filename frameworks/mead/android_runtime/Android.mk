@@ -17,6 +17,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := \
     android_runtime_mead.cpp \
     android_view_Surface.cpp \
+    android_view_SurfaceControl.cpp \
     mead_input.cpp \
     ../../../libandroidfw/DisplayEventDispatcher.cpp \
     ../../base/core/jni/android_view_DisplayEventReceiver.cpp \
@@ -42,6 +43,7 @@ LOCAL_SRC_FILES := \
     ../../base/core/jni/android_content_res_ApkAssets.cpp \
     ../../base/core/jni/android_util_StringBlock.cpp \
     ../../base/core/jni/android_util_XmlBlock.cpp \
+    ../../base/core/jni/android_util_Process.cpp \
     ../../base/core/jni/android_hardware_HardwareBuffer.cpp \
     ../../base/core/jni/android_nio_utils.cpp \
     ../../base/core/jni/android_graphics_Canvas.cpp \
@@ -90,6 +92,8 @@ LOCAL_C_INCLUDES := \
     $(android_runtime_jni)/android/graphics \
     external/libjpeg-turbo \
     frameworks/mead/egl/include \
+    system/core/libmeminfo/include \
+    system/core/libprocessgroup/include \
     hardware/libhardware/include \
     system/core/libgrallocusage/include \
     frameworks/native/include \
@@ -101,6 +105,7 @@ LOCAL_CFLAGS := -Wall -Wextra -Wno-unused-parameter -DLIBGUI_NO_BUFFER_QUEUE \
     -DENABLE_STRING8_OBSOLETE_METHODS -DENABLE_STRING16_OBSOLETE_METHODS \
     -include mead/android10_compat.h
 LOCAL_CPPFLAGS := -std=gnu++17
+LOCAL_STATIC_LIBRARIES := libmeminfo libprocessgroup
 LOCAL_SHARED_LIBRARIES := \
     libandroidfw \
     libbase \
