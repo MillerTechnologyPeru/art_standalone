@@ -46,6 +46,11 @@ int mead_input_send_motion(MeadInput* input, int32_t deviceId, int32_t source, i
                            uint32_t pointerCount, const int32_t* pointerIds,
                            const int32_t* toolTypes, uint64_t axisBits, const float* axisValues);
 
+/* A key character map (a .kcm file, Android's /system/usr/keychars) for an
+ * input device, as an android.view.KeyCharacterMap (a local reference), or
+ * NULL when it can't be loaded. */
+jobject mead_input_load_key_character_map(JNIEnv* env, int32_t deviceId, const char* path);
+
 #ifdef __cplusplus
 }
 #endif
