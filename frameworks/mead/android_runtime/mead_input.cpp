@@ -16,6 +16,7 @@
 #include "android_view_KeyCharacterMap.h"
 
 #include <input/KeyCharacterMap.h>
+#include <input/KeyLayoutMap.h>
 
 namespace android {
 
@@ -79,6 +80,22 @@ jobject mead_input_open(JNIEnv* env, const char* name, MeadInput** out) {
     env->DeleteLocalRef(server);
     *out = input;
     return client;
+}
+
+int32_t mead_input_map_key(int32_t scanCode) {
+    static android::sp<android::KeyLayoutMap> layout = [] {
+        android::sp<android::KeyLayoutMap> map;
+        const char* root = getenv("ANDROID_ROOT");
+        std::string path = std::string(root != nullptr ? root : "/system") + "/usr/keylayout/Generic.kl";
+        if (android::KeyLayoutMap::load(path, &map) != android::OK) {
+            ALOGE("Can't load the key layout %s", path.c_str());
+        }
+        return map;
+    }();
+    if (layout == nullptr) return 0;
+    int32_t keyCode = 0;
+    uint32_t flags = 0;
+    return layout->mapKey(scanCode, 0, &keyCode, &flags) == android::OK ? keyCode : 0;
 }
 
 jobject mead_input_load_key_character_map(JNIEnv* env, int32_t deviceId, const char* path) {
