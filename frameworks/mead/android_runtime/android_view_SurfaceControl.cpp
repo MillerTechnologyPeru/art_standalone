@@ -47,6 +47,8 @@ static jlong createLayer(JNIEnv* env, const char* name, jint w, jint h, jint fla
     control->state.width = static_cast<uint32_t>(w);
     control->state.height = static_cast<uint32_t>(h);
     control->state.shown = (flags & kHidden) == 0;
+    control->state.scale_x = 1;
+    control->state.scale_y = 1;
     if ((flags & kKindMask) == 0 && parent->surface != nullptr) {
         ANativeWindow* window = mead_gui_create_layer(parent->surface.get(), name,
                                                       static_cast<uint32_t>(w),
@@ -133,17 +135,19 @@ static jboolean nativeGetProtectedContentSupport(JNIEnv*, jclass) {
 // Transactions: each layer's changes, applied together. Changes to windows
 // (the window manager's own) are the window manager's to make, and dropped.
 struct MeadLayerChange {
-    enum : uint32_t { kPosition = 1, kSize = 2, kZ = 4, kFlags = 8 };
+    enum : uint32_t { kPosition = 1, kSize = 2, kZ = 4, kFlags = 8, kMatrix = 16 };
     uint32_t what = 0;
     int32_t x = 0, y = 0;
     uint32_t width = 0, height = 0;
     int32_t z = 0;
     int32_t flags = 0, mask = 0;
+    float scaleX = 1, scaleY = 1;
 
     void merge(const MeadLayerChange& other) {
         if (other.what & kPosition) { x = other.x; y = other.y; }
         if (other.what & kSize) { width = other.width; height = other.height; }
         if (other.what & kZ) z = other.z;
+        if (other.what & kMatrix) { scaleX = other.scaleX; scaleY = other.scaleY; }
         if (other.what & kFlags) { flags = (flags & ~other.mask) | (other.flags & other.mask); mask |= other.mask; }
         what |= other.what;
     }
@@ -181,6 +185,10 @@ static void nativeApplyTransaction(JNIEnv*, jclass, jlong transactionObj, jboole
         if (change.what & MeadLayerChange::kPosition) { state.x = change.x; state.y = change.y; }
         if (change.what & MeadLayerChange::kSize) { state.width = change.width; state.height = change.height; }
         if (change.what & MeadLayerChange::kZ) state.z = change.z;
+        if (change.what & MeadLayerChange::kMatrix) {
+            state.scale_x = change.scaleX;
+            state.scale_y = change.scaleY;
+        }
         if ((change.what & MeadLayerChange::kFlags) && (change.mask & kSurfaceHidden)) {
             state.shown = (change.flags & kSurfaceHidden) == 0;
         }
@@ -204,6 +212,17 @@ static void nativeSetPosition(JNIEnv*, jclass, jlong transactionObj, jlong nativ
         change->what |= MeadLayerChange::kPosition;
         change->x = static_cast<int32_t>(x);
         change->y = static_cast<int32_t>(y);
+    }
+}
+
+// A layer's matrix: its scale, which is all SurfaceView sets; a rotation or
+// skew's other terms are dropped.
+static void nativeSetMatrix(JNIEnv*, jclass, jlong transactionObj, jlong nativeObject,
+                            jfloat dsdx, jfloat, jfloat, jfloat dsdy) {
+    if (MeadLayerChange* change = changeFor(transactionObj, nativeObject)) {
+        change->what |= MeadLayerChange::kMatrix;
+        change->scaleX = dsdx;
+        change->scaleY = dsdy;
     }
 }
 
@@ -270,7 +289,7 @@ static const JNINativeMethod sSurfaceControlMethods[] = {
         {"nativeSetTransparentRegionHint", "(JJLandroid/graphics/Region;)V", (void*)transactionNoOp},
         {"nativeSetAlpha", "(JJF)V", (void*)transactionNoOp},
         {"nativeSetColor", "(JJ[F)V", (void*)transactionNoOp},
-        {"nativeSetMatrix", "(JJFFFF)V", (void*)transactionNoOp},
+        {"nativeSetMatrix", "(JJFFFF)V", (void*)nativeSetMatrix},
         {"nativeSetColorTransform", "(JJ[F[F)V", (void*)transactionNoOp},
         {"nativeSetColorSpaceAgnostic", "(JJZ)V", (void*)transactionNoOp},
         {"nativeSetFlags", "(JJII)V", (void*)nativeSetFlags},
