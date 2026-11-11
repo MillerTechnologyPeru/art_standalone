@@ -91,6 +91,12 @@ jobject mead_input_load_key_character_map(JNIEnv* env, int32_t deviceId, const c
     return android::android_view_KeyCharacterMap_create(env, deviceId, map);
 }
 
+MeadInput* mead_input_from_channel(JNIEnv* env, jobject serverChannel) {
+    android::sp<android::InputChannel> channel =
+            android::android_view_InputChannel_getInputChannel(env, serverChannel);
+    return channel != nullptr ? new MeadInput(channel) : nullptr;
+}
+
 void mead_input_close(MeadInput* input) {
     delete input;
 }
