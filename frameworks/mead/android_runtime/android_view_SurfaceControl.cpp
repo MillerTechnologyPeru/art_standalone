@@ -177,3 +177,14 @@ int register_android_view_SurfaceSession(JNIEnv* env) {
 }
 
 } // namespace android
+
+// For Mead's window manager: a SurfaceControl's native object for a window
+// the display bridge made, taking the surface's reference; for
+// SurfaceControl's mNativeObject.
+extern "C" jlong mead_surface_control_create(ANativeWindow* window) {
+    android::sp<android::MeadSurfaceControl> control = new android::MeadSurfaceControl();
+    control->surface = static_cast<android::Surface*>(window);
+    control->surface->decStrong(nullptr);
+    control->incStrong(&android::sRefBaseOwner);
+    return reinterpret_cast<jlong>(control.get());
+}
