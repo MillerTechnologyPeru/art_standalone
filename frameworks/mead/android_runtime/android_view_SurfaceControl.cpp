@@ -2,8 +2,10 @@
  * android.view.SurfaceControl's and SurfaceSession's natives for Mead, in
  * place of Android 10's, which talk to SurfaceFlinger: a SurfaceControl is a
  * window that Mead's display bridge makes (mead_gui_create_window), with the
- * surface drawing to it. There is no composition: transactions, which
- * position, size and stack layers, are accepted and do nothing.
+ * surface drawing to it, or, made with a parent, a layer in that window (a
+ * SurfaceView's, mead_gui_create_layer). Transactions position, size, stack,
+ * show and hide layers; the rest of what they set (crops, matrices, alpha,
+ * colors) isn't shown yet.
  */
 
 #define LOG_TAG "SurfaceControl"
@@ -20,6 +22,8 @@
 
 #include "MeadSurfaceControl.h"
 
+#include <map>
+
 namespace android {
 
 static const char* const kUnsupported = "java/lang/UnsupportedOperationException";
@@ -27,9 +31,47 @@ static const char* const kUnsupported = "java/lang/UnsupportedOperationException
 // The owner passed to incStrong and decStrong for Java's references.
 static const void* sRefBaseOwner;
 
+// SurfaceControl's flags: made hidden, and the kinds of layer with no
+// buffer of their own.
+static const jint kHidden = 0x00000004;
+static const jint kKindMask = 0x000F0000;
+// A transaction's flags: hidden.
+static const jint kSurfaceHidden = 0x01;
+
+// A layer, in the window its parent is in; its own surface if it has a
+// buffer.
+static jlong createLayer(JNIEnv* env, const char* name, jint w, jint h, jint flags,
+                         MeadSurfaceControl* parent) {
+    sp<MeadSurfaceControl> control = new MeadSurfaceControl();
+    control->layer = true;
+    control->state.width = static_cast<uint32_t>(w);
+    control->state.height = static_cast<uint32_t>(h);
+    control->state.shown = (flags & kHidden) == 0;
+    if ((flags & kKindMask) == 0 && parent->surface != nullptr) {
+        ANativeWindow* window = mead_gui_create_layer(parent->surface.get(), name,
+                                                      static_cast<uint32_t>(w),
+                                                      static_cast<uint32_t>(h));
+        if (window == nullptr) {
+            jniThrowException(env, "android/view/Surface$OutOfResourcesException",
+                              "the display bridge made no layer");
+            return 0;
+        }
+        control->surface = static_cast<Surface*>(window);
+        // mead_gui_create_layer's reference, now control->surface's.
+        control->surface->decStrong(nullptr);
+        mead_gui_update_layer(window, &control->state);
+    }
+    control->incStrong(&sRefBaseOwner);
+    return reinterpret_cast<jlong>(control.get());
+}
+
 static jlong nativeCreate(JNIEnv* env, jclass, jobject, jstring nameStr, jint w, jint h, jint,
-                          jint, jlong, jobject) {
+                          jint flags, jlong parentObject, jobject) {
     ScopedUtfChars name(env, nameStr);
+    if (parentObject != 0) {
+        return createLayer(env, name.c_str(), w, h, flags,
+                           reinterpret_cast<MeadSurfaceControl*>(parentObject));
+    }
     ANativeWindow* window = mead_gui_create_window(name.c_str(), static_cast<uint32_t>(w),
                                                    static_cast<uint32_t>(h));
     if (window == nullptr) {
@@ -67,7 +109,8 @@ static void nativeRelease(JNIEnv*, jclass, jlong nativeObject) {
 
 static void nativeDestroy(JNIEnv*, jclass, jlong nativeObject) {
     auto control = reinterpret_cast<MeadSurfaceControl*>(nativeObject);
-    if (control->surface != nullptr) {
+    if (control->surface != nullptr && !control->destroyed) {
+        control->destroyed = true;
         mead_gui_destroy_window(control->surface.get());
     }
     control->decStrong(&sRefBaseOwner);
@@ -87,8 +130,35 @@ static jboolean nativeGetProtectedContentSupport(JNIEnv*, jclass) {
     return JNI_FALSE;
 }
 
-// Transactions: accepted, and nothing done.
-struct MeadTransaction {};
+// Transactions: each layer's changes, applied together. Changes to windows
+// (the window manager's own) are the window manager's to make, and dropped.
+struct MeadLayerChange {
+    enum : uint32_t { kPosition = 1, kSize = 2, kZ = 4, kFlags = 8 };
+    uint32_t what = 0;
+    int32_t x = 0, y = 0;
+    uint32_t width = 0, height = 0;
+    int32_t z = 0;
+    int32_t flags = 0, mask = 0;
+
+    void merge(const MeadLayerChange& other) {
+        if (other.what & kPosition) { x = other.x; y = other.y; }
+        if (other.what & kSize) { width = other.width; height = other.height; }
+        if (other.what & kZ) z = other.z;
+        if (other.what & kFlags) { flags = (flags & ~other.mask) | (other.flags & other.mask); mask |= other.mask; }
+        what |= other.what;
+    }
+};
+
+struct MeadTransaction {
+    std::map<sp<MeadSurfaceControl>, MeadLayerChange> changes;
+};
+
+static MeadLayerChange* changeFor(jlong transactionObj, jlong nativeObject) {
+    auto transaction = reinterpret_cast<MeadTransaction*>(transactionObj);
+    auto control = reinterpret_cast<MeadSurfaceControl*>(nativeObject);
+    if (transaction == nullptr || control == nullptr || !control->layer) return nullptr;
+    return &transaction->changes[control];
+}
 
 static void destroyTransaction(MeadTransaction* transaction) {
     delete transaction;
@@ -102,7 +172,75 @@ static jlong nativeGetNativeTransactionFinalizer(JNIEnv*, jclass) {
     return static_cast<jlong>(reinterpret_cast<uintptr_t>(&destroyTransaction));
 }
 
-// For every transaction call: each takes the transaction and its own
+static void nativeApplyTransaction(JNIEnv*, jclass, jlong transactionObj, jboolean) {
+    auto transaction = reinterpret_cast<MeadTransaction*>(transactionObj);
+    for (auto& entry : transaction->changes) {
+        const sp<MeadSurfaceControl>& control = entry.first;
+        const MeadLayerChange& change = entry.second;
+        MeadLayerState& state = control->state;
+        if (change.what & MeadLayerChange::kPosition) { state.x = change.x; state.y = change.y; }
+        if (change.what & MeadLayerChange::kSize) { state.width = change.width; state.height = change.height; }
+        if (change.what & MeadLayerChange::kZ) state.z = change.z;
+        if ((change.what & MeadLayerChange::kFlags) && (change.mask & kSurfaceHidden)) {
+            state.shown = (change.flags & kSurfaceHidden) == 0;
+        }
+        if (control->surface != nullptr && !control->destroyed) {
+            mead_gui_update_layer(control->surface.get(), &state);
+        }
+    }
+    transaction->changes.clear();
+}
+
+static void nativeMergeTransaction(JNIEnv*, jclass, jlong transactionObj, jlong otherObj) {
+    auto transaction = reinterpret_cast<MeadTransaction*>(transactionObj);
+    auto other = reinterpret_cast<MeadTransaction*>(otherObj);
+    for (auto& entry : other->changes) transaction->changes[entry.first].merge(entry.second);
+    other->changes.clear();
+}
+
+static void nativeSetPosition(JNIEnv*, jclass, jlong transactionObj, jlong nativeObject, jfloat x,
+                              jfloat y) {
+    if (MeadLayerChange* change = changeFor(transactionObj, nativeObject)) {
+        change->what |= MeadLayerChange::kPosition;
+        change->x = static_cast<int32_t>(x);
+        change->y = static_cast<int32_t>(y);
+    }
+}
+
+static void nativeSetSize(JNIEnv*, jclass, jlong transactionObj, jlong nativeObject, jint w,
+                          jint h) {
+    if (MeadLayerChange* change = changeFor(transactionObj, nativeObject)) {
+        change->what |= MeadLayerChange::kSize;
+        change->width = static_cast<uint32_t>(w);
+        change->height = static_cast<uint32_t>(h);
+    }
+}
+
+static void nativeSetLayer(JNIEnv*, jclass, jlong transactionObj, jlong nativeObject, jint z) {
+    if (MeadLayerChange* change = changeFor(transactionObj, nativeObject)) {
+        change->what |= MeadLayerChange::kZ;
+        change->z = z;
+    }
+}
+
+// Relative to another layer: Mead orders layers against their window only.
+static void nativeSetRelativeLayer(JNIEnv* env, jclass clazz, jlong transactionObj,
+                                   jlong nativeObject, jobject, jint z) {
+    nativeSetLayer(env, clazz, transactionObj, nativeObject, z);
+}
+
+static void nativeSetFlags(JNIEnv*, jclass, jlong transactionObj, jlong nativeObject, jint flags,
+                           jint mask) {
+    if (MeadLayerChange* change = changeFor(transactionObj, nativeObject)) {
+        MeadLayerChange flagChange;
+        flagChange.what = MeadLayerChange::kFlags;
+        flagChange.flags = flags;
+        flagChange.mask = mask;
+        change->merge(flagChange);
+    }
+}
+
+// For the other transaction calls: each takes the transaction and its own
 // arguments, which a function doing nothing never reads.
 static void transactionNoOp(JNIEnv*, jclass) {}
 
@@ -120,22 +258,22 @@ static const JNINativeMethod sSurfaceControlMethods[] = {
         {"nativeGetProtectedContentSupport", "()Z", (void*)nativeGetProtectedContentSupport},
         {"nativeCreateTransaction", "()J", (void*)nativeCreateTransaction},
         {"nativeGetNativeTransactionFinalizer", "()J", (void*)nativeGetNativeTransactionFinalizer},
-        {"nativeApplyTransaction", "(JZ)V", (void*)transactionNoOp},
-        {"nativeMergeTransaction", "(JJ)V", (void*)transactionNoOp},
+        {"nativeApplyTransaction", "(JZ)V", (void*)nativeApplyTransaction},
+        {"nativeMergeTransaction", "(JJ)V", (void*)nativeMergeTransaction},
         {"nativeSetAnimationTransaction", "(J)V", (void*)transactionNoOp},
         {"nativeSetEarlyWakeup", "(J)V", (void*)transactionNoOp},
-        {"nativeSetLayer", "(JJI)V", (void*)transactionNoOp},
-        {"nativeSetRelativeLayer", "(JJLandroid/os/IBinder;I)V", (void*)transactionNoOp},
-        {"nativeSetPosition", "(JJFF)V", (void*)transactionNoOp},
+        {"nativeSetLayer", "(JJI)V", (void*)nativeSetLayer},
+        {"nativeSetRelativeLayer", "(JJLandroid/os/IBinder;I)V", (void*)nativeSetRelativeLayer},
+        {"nativeSetPosition", "(JJFF)V", (void*)nativeSetPosition},
         {"nativeSetGeometryAppliesWithResize", "(JJ)V", (void*)transactionNoOp},
-        {"nativeSetSize", "(JJII)V", (void*)transactionNoOp},
+        {"nativeSetSize", "(JJII)V", (void*)nativeSetSize},
         {"nativeSetTransparentRegionHint", "(JJLandroid/graphics/Region;)V", (void*)transactionNoOp},
         {"nativeSetAlpha", "(JJF)V", (void*)transactionNoOp},
         {"nativeSetColor", "(JJ[F)V", (void*)transactionNoOp},
         {"nativeSetMatrix", "(JJFFFF)V", (void*)transactionNoOp},
         {"nativeSetColorTransform", "(JJ[F[F)V", (void*)transactionNoOp},
         {"nativeSetColorSpaceAgnostic", "(JJZ)V", (void*)transactionNoOp},
-        {"nativeSetFlags", "(JJII)V", (void*)transactionNoOp},
+        {"nativeSetFlags", "(JJII)V", (void*)nativeSetFlags},
         {"nativeSetWindowCrop", "(JJIIII)V", (void*)transactionNoOp},
         {"nativeSetCornerRadius", "(JJF)V", (void*)transactionNoOp},
         {"nativeSetLayerStack", "(JJI)V", (void*)transactionNoOp},
