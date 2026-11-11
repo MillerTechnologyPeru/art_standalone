@@ -436,9 +436,16 @@ bool EglManager::makeCurrent(EGLSurface surface, EGLint* errOut, bool force) {
         }
     }
     mCurrentSurface = surface;
+#ifdef HWUI_MEAD_WINDOWS
+    // Choreographer paces frames, as on Android, where swapping doesn't wait
+    // for the display; a windowing system's EGL with a swap interval waits
+    // for the compositor, which doesn't answer while the window isn't shown.
+    eglSwapInterval(mEglDisplay, 0);
+#else
     if (Properties::disableVsync) {
         eglSwapInterval(mEglDisplay, 0);
     }
+#endif
     return true;
 }
 
