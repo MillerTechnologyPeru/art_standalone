@@ -90,6 +90,10 @@ struct ANativeWindow* mead_surface_create(uint32_t width, uint32_t height, int32
  * surface's callbacks. */
 void mead_surface_set_native_window(struct ANativeWindow* surface, uintptr_t window);
 
+/* A surface's native window, as above, or 0: for EGL outside hwui, an app's
+ * through the NDK's ANativeWindow, which can't call perform itself. */
+uintptr_t mead_surface_get_native_window(struct ANativeWindow* surface);
+
 /* ANativeWindow's perform code for a surface's native window, as above:
  * perform(window, MEAD_SURFACE_GET_NATIVE_WINDOW, uintptr_t* out). It is
  * 0 for a surface without one. */
