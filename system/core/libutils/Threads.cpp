@@ -314,12 +314,21 @@ void androidSetCreateThreadFunc(android_create_thread_fn func)
     gCreateThreadFn = func;
 }
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__GLIBC__)
 int androidSetThreadPriority(pid_t tid, int pri)
 {
     int rc = 0;
 
     if (setpriority(PRIO_PROCESS, tid, pri) < 0) {
+#if !defined(__ANDROID__)
+        // Raising a thread's priority takes a right desktop users seldom
+        // have; the thread keeps its priority, as apps don't expect raising
+        // their own threads' to fail.
+        if (errno == EACCES || errno == EPERM) {
+            errno = 0;
+            return 0;
+        }
+#endif
         rc = INVALID_OPERATION;
     } else {
         errno = 0;
