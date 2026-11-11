@@ -78,6 +78,26 @@ void mead_surface_set_native_window(struct ANativeWindow* surface, uintptr_t win
  * 0 for a surface without one. */
 #define MEAD_SURFACE_GET_NATIVE_WINDOW 0x4d454144
 
+/* Windows for SurfaceControl: the window manager's surfaces, each its own
+ * window, which the bridge makes. create returns a surface from
+ * mead_surface_create on a new window of width×height pixels named name,
+ * with one reference for the caller, or NULL; destroy closes the window
+ * whose surface that was, once its SurfaceControl is destroyed. */
+typedef struct MeadWindowCallbacks {
+    void* context;
+    struct ANativeWindow* (*create)(void* context, const char* name, uint32_t width,
+                                    uint32_t height);
+    void (*destroy)(void* context, struct ANativeWindow* window);
+} MeadWindowCallbacks;
+
+void mead_gui_set_window_callbacks(const MeadWindowCallbacks* callbacks);
+
+/* A window from the bridge's create, or NULL without a bridge. */
+struct ANativeWindow* mead_gui_create_window(const char* name, uint32_t width, uint32_t height);
+
+/* The bridge's destroy, for a window from mead_gui_create_window. */
+void mead_gui_destroy_window(struct ANativeWindow* window);
+
 /* Resizes a surface made by mead_surface_create: the buffers it hands out
  * from now on are width×height. */
 void mead_surface_resize(struct ANativeWindow* surface, uint32_t width, uint32_t height);
