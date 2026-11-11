@@ -142,6 +142,8 @@ endif
 # /system/etc/fonts.xml
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/etc/ $(wildcard $(____ANDROID_JAVA_DIR)/etc/fonts.xml)
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/fonts/ $(wildcard $(____ANDROID_JAVA_DIR)/fonts/*)
+# the key character maps, Android's /system/usr/keychars
+	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/usr/keychars/ $(wildcard $(____ANDROID_JAVA_DIR)/usr/keychars/*)
 # the framework's resources, where the framework looks for them: /system,
 # which is ANDROID_ROOT here
 	install -m644 -Dt $(____INSTALL_RUNTIME_ROOT)/framework/ $(wildcard $(____ANDROID_JAVA_DIR)/framework-res.apk)
