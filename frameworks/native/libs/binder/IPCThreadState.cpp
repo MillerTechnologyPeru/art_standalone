@@ -922,7 +922,9 @@ finish:
 status_t IPCThreadState::talkWithDriver(bool doReceive)
 {
     if (mProcess->mDriverFD <= 0) {
-        return -EBADF;
+        // Mead: without a binder driver there's no other process to reach:
+        // as for one that's gone (ServiceManager finds no service).
+        return DEAD_OBJECT;
     }
 
     binder_write_read bwr;
