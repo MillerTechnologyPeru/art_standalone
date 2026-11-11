@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <string>
 #include <vector>
 
 namespace {
@@ -58,12 +59,24 @@ FORWARD(EGLBoolean, eglSetDamageRegionKHR, EGL_FALSE,
         (dpy, surface, rects, n_rects))
 
 // MEAD_FRAME_DUMP=path: writes the frame about to be shown to path as a
-// binary PPM, every 60 swaps from the first, as Mead's EGL provider does for
-// games. A debugging aid for hosts with no way to look at the screen.
+// binary PPM, every 60 swaps from the first (or every
+// MEAD_FRAME_DUMP_INTERVAL), as Mead's EGL provider does for games. A
+// debugging aid for hosts with no way to look at the screen.
 static void dumpFrame(EGLDisplay dpy, EGLSurface surface) {
     static unsigned swaps;
     const char* path = getenv("MEAD_FRAME_DUMP");
-    if (path == nullptr || swaps++ % 60 != 0) return;
+    if (path == nullptr) return;
+    const char* every = getenv("MEAD_FRAME_DUMP_INTERVAL");
+    unsigned interval = every != nullptr && atoi(every) > 0 ? static_cast<unsigned>(atoi(every)) : 60;
+    if (swaps++ % interval != 0) return;
+    // Each window's frames go to their own file: the first window's to the
+    // path, the next ones' to the path with "-1", "-2" and so on after it.
+    static std::vector<EGLSurface> surfaces;
+    size_t index = 0;
+    while (index < surfaces.size() && surfaces[index] != surface) index++;
+    if (index == surfaces.size()) surfaces.push_back(surface);
+    std::string file_path = path;
+    if (index > 0) file_path += "-" + std::to_string(index);
     EGLint width = 0, height = 0;
     if (!eglQuerySurface(dpy, surface, EGL_WIDTH, &width) ||
         !eglQuerySurface(dpy, surface, EGL_HEIGHT, &height) || width <= 0 || height <= 0) {
@@ -75,7 +88,7 @@ static void dumpFrame(EGLDisplay dpy, EGLSurface surface) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(bound));
-    FILE* file = fopen(path, "wb");
+    FILE* file = fopen(file_path.c_str(), "wb");
     if (file == nullptr) return;
     fprintf(file, "P6\n%d %d\n255\n", width, height);
     for (EGLint row = height - 1; row >= 0; row--) {
