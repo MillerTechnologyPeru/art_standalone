@@ -116,9 +116,10 @@ struct ANativeWindow* mead_gui_create_window(const char* name, uint32_t width, u
 void mead_gui_destroy_window(struct ANativeWindow* window);
 
 /* A layer's state in its parent window, as SurfaceControl transactions set
- * it: its place in the parent's surface and its size, in pixels; its order,
- * under the parent's content when negative (a SurfaceView's hole) and over
- * it otherwise; and whether it shows. */
+ * it: its place in the parent's surface and its buffer's size, in pixels;
+ * its order, under the parent's content when negative (a SurfaceView's hole)
+ * and over it otherwise; whether it shows; and the scale its matrix shows
+ * its buffer at (a SurfaceView's with a fixed size, scaled to the view). */
 typedef struct MeadLayerState {
     int32_t x;
     int32_t y;
@@ -126,6 +127,8 @@ typedef struct MeadLayerState {
     uint32_t height;
     int32_t z;
     int32_t shown;
+    float scale_x;
+    float scale_y;
 } MeadLayerState;
 
 /* Layers for SurfaceControl: a child surface of a window (a SurfaceView's),
