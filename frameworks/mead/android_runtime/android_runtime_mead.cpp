@@ -80,6 +80,7 @@ extern int register_android_view_DisplayListCanvas(JNIEnv* env);
 extern int register_android_view_ThreadedRenderer(JNIEnv* env);
 extern int register_android_view_Surface(JNIEnv* env);
 extern int register_android_view_SurfaceControl(JNIEnv* env);
+extern int register_android_media_AudioSystem(JNIEnv* env);
 extern int register_android_view_SurfaceSession(JNIEnv* env);
 extern int register_android_os_MessageQueue(JNIEnv* env);
 extern int register_android_util_PathParser(JNIEnv* env);
@@ -342,6 +343,7 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_view_ThreadedRenderer),
     REG_JNI(register_android_view_Surface),
     REG_JNI(register_android_view_SurfaceControl),
+    REG_JNI(register_android_media_AudioSystem),
     REG_JNI(register_android_view_SurfaceSession),
     REG_JNI(register_android_graphics_ColorSpace),
     REG_JNI(register_android_graphics_Graphics),
