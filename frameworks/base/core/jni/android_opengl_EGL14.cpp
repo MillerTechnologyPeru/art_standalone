@@ -23,17 +23,20 @@
 #include <nativehelper/JNIHelp.h>
 #include <android_runtime/AndroidRuntime.h>
 #include <android_runtime/android_view_Surface.h>
-#include <android_runtime/android_graphics_SurfaceTexture.h>
 #include <utils/misc.h>
 
 #include <assert.h>
 #include <EGL/egl.h>
 
 #include <gui/Surface.h>
-#include <gui/GLConsumer.h>
 #include <gui/Surface.h>
 
 #include <ui/ANativeObjectBase.h>
+
+// Mead: EGL is the host's, on the windowing connection Mead's windows are on
+// (as hwui's EglManager uses it), and draws to the windowing system's window
+// behind a Surface. Mead has no SurfaceTexture.
+#include <mead/gui.h>
 
 static jclass egldisplayClass;
 static jclass eglcontextClass;
@@ -147,9 +150,19 @@ static jobject
 android_eglGetDisplay
   (JNIEnv *_env, jobject _this, jlong display_id) {
     EGLDisplay _returnValue = (EGLDisplay) 0;
-    _returnValue = eglGetDisplay(
-        reinterpret_cast<EGLNativeDisplayType>(display_id)
-    );
+    uint32_t nativeKind = 0;
+    void* nativeDisplay = nullptr;
+    mead_gui_get_native_display(&nativeKind, &nativeDisplay);
+    if (display_id == 0 &&
+        (nativeKind == MEAD_GUI_NATIVE_WAYLAND || nativeKind == MEAD_GUI_NATIVE_X11)) {
+        _returnValue = eglGetPlatformDisplay(
+            nativeKind == MEAD_GUI_NATIVE_WAYLAND ? EGL_PLATFORM_WAYLAND_KHR : EGL_PLATFORM_X11_KHR,
+            nativeDisplay, nullptr);
+    } else {
+        _returnValue = eglGetDisplay(
+            reinterpret_cast<EGLNativeDisplayType>(display_id)
+        );
+    }
     return toEGLHandle(_env, egldisplayClass, egldisplayConstructor, _returnValue);
 }
 
@@ -571,12 +584,18 @@ not_valid_surface:
     if (window == NULL)
         goto not_valid_surface;
 
-    _returnValue = eglCreateWindowSurface(
-        (EGLDisplay)dpy_native,
-        (EGLConfig)config_native,
-        (EGLNativeWindowType)window.get(),
-        (EGLint *)attrib_list
-    );
+    {
+        uintptr_t nativeWindow = 0;
+        if (window->perform(window.get(), MEAD_SURFACE_GET_NATIVE_WINDOW, &nativeWindow) != 0 ||
+            nativeWindow == 0)
+            goto not_valid_surface;
+        _returnValue = eglCreateWindowSurface(
+            (EGLDisplay)dpy_native,
+            (EGLConfig)config_native,
+            (EGLNativeWindowType)nativeWindow,
+            (EGLint *)attrib_list
+        );
+    }
 
 exit:
     if (attrib_list_base) {
@@ -605,7 +624,6 @@ android_eglCreateWindowSurfaceTexture
     jint _remaining;
     EGLint *attrib_list = (EGLint *) 0;
     android::sp<ANativeWindow> window;
-    android::sp<android::IGraphicBufferProducer> producer;
 
     if (!attrib_list_ref) {
         _exception = 1;
@@ -626,15 +644,8 @@ not_valid_surface:
         _exceptionMessage = "Make sure the SurfaceView or associated SurfaceHolder has a valid Surface";
         goto exit;
     }
-    producer = android::SurfaceTexture_getProducer(_env, win);
-
-    if (producer == NULL)
-        goto not_valid_surface;
-
-    window = new android::Surface(producer, true);
-
-    if (window == NULL)
-        goto not_valid_surface;
+    // No SurfaceTexture in Mead.
+    goto not_valid_surface;
 
     _remaining = _env->GetArrayLength(attrib_list_ref) - offset;
     attrib_list_base = (EGLint *)
