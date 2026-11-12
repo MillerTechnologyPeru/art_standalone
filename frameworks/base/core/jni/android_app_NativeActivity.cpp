@@ -41,8 +41,11 @@
 #include "android_view_KeyEvent.h"
 
 #include "android-base/stringprintf.h"
-#include "nativebridge/native_bridge.h"
-#include "nativeloader/native_loader.h"
+// Mead: an app's libraries are bionic's, loaded by Mead's loader through
+// libdl_bio, as ART loads them (java_vm_ext.cc), not by libnativeloader.
+extern "C" void* bionic_dlopen(const char* filename, int flag);
+extern "C" void* bionic_dlsym(void* handle, const char* symbol);
+extern "C" const char* bionic_dlerror(void);
 
 #include "core_jni_helpers.h"
 
@@ -279,40 +282,25 @@ loadNativeCode_native(JNIEnv* env, jobject clazz, jstring path, jstring funcName
 
     ScopedUtfChars pathStr(env, path);
     std::unique_ptr<NativeCode> code;
-    bool needs_native_bridge = false;
-
-    char* nativeloader_error_msg = nullptr;
-    void* handle = OpenNativeLibrary(env,
-                                     sdkVersion,
-                                     pathStr.c_str(),
-                                     classLoader,
-                                     nullptr,
-                                     libraryPath,
-                                     &needs_native_bridge,
-                                     &nativeloader_error_msg);
-
+    void* handle = bionic_dlopen(pathStr.c_str(), RTLD_NOW);
     if (handle == nullptr) {
-        g_error_msg = nativeloader_error_msg;
-        NativeLoaderFreeErrorMessage(nativeloader_error_msg);
+        const char* error = bionic_dlerror();
+        g_error_msg = error != nullptr ? error : "unknown error";
         ALOGW("NativeActivity LoadNativeLibrary(\"%s\") failed: %s",
               pathStr.c_str(),
               g_error_msg.c_str());
         return 0;
     }
 
-    void* funcPtr = NULL;
     const char* funcStr = env->GetStringUTFChars(funcName, NULL);
-    if (needs_native_bridge) {
-        funcPtr = NativeBridgeGetTrampoline(handle, funcStr, NULL, 0);
-    } else {
-        funcPtr = dlsym(handle, funcStr);
-    }
+    void* funcPtr = bionic_dlsym(handle, funcStr);
 
     code.reset(new NativeCode(handle, (ANativeActivity_createFunc*)funcPtr));
     env->ReleaseStringUTFChars(funcName, funcStr);
 
     if (code->createActivityFunc == NULL) {
-        g_error_msg = needs_native_bridge ? NativeBridgeGetError() : dlerror();
+        const char* error = bionic_dlerror();
+        g_error_msg = error != nullptr ? error : "no such symbol";
         ALOGW("ANativeActivity_onCreate not found: %s", g_error_msg.c_str());
         return 0;
     }
