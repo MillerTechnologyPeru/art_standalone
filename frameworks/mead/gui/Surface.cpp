@@ -265,11 +265,19 @@ int Surface::setBufferCount(int bufferCount) {
 int Surface::query(int what, int* value) const {
     std::lock_guard<std::mutex> lock(mMutex);
     switch (what) {
+        // As Android's: the width and height are the consumer's (the
+        // layer's size, BufferQueueProducer::query), whatever geometry the
+        // app set; only the default size for the next buffer follows it.
+        // Unreal sets an 8×8 probe geometry, then sizes its view by these.
         case NATIVE_WINDOW_WIDTH:
+            *value = static_cast<int>(mDefaultWidth);
+            return NO_ERROR;
+        case NATIVE_WINDOW_HEIGHT:
+            *value = static_cast<int>(mDefaultHeight);
+            return NO_ERROR;
         case NATIVE_WINDOW_DEFAULT_WIDTH:
             *value = static_cast<int>(mUserWidth ? mUserWidth : mDefaultWidth);
             return NO_ERROR;
-        case NATIVE_WINDOW_HEIGHT:
         case NATIVE_WINDOW_DEFAULT_HEIGHT:
             *value = static_cast<int>(mUserHeight ? mUserHeight : mDefaultHeight);
             return NO_ERROR;
