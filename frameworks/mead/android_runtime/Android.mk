@@ -20,6 +20,7 @@ LOCAL_SRC_FILES := \
     android_view_SurfaceControl.cpp \
     mead_input.cpp \
     mead_looper.cpp \
+    mead_audio_system.cpp \
     ../../../libandroidfw/DisplayEventDispatcher.cpp \
     ../../base/core/jni/android_view_DisplayEventReceiver.cpp \
     ../../base/core/jni/android_view_InputChannel.cpp \
