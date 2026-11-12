@@ -21,6 +21,16 @@ LOCAL_SRC_FILES := \
     mead_input.cpp \
     mead_looper.cpp \
     mead_audio_system.cpp \
+    mead_ndk_input.cpp \
+    mead_ndk_asset_manager.cpp \
+    mead_ndk_native_activity.cpp \
+    mead_ndk_configuration.cpp \
+    ../../base/core/jni/android_app_NativeActivity.cpp \
+    ../../base/core/jni/android_view_InputQueue.cpp \
+    ../../base/core/jni/android_opengl_EGL14.cpp \
+    ../../base/core/jni/android_opengl_GLES20.cpp \
+    ../../base/core/jni/android_opengl_GLES30.cpp \
+    ../../base/core/jni/android_opengl_GLES31.cpp \
     ../../../libandroidfw/DisplayEventDispatcher.cpp \
     ../../base/core/jni/android_view_DisplayEventReceiver.cpp \
     ../../base/core/jni/android_view_InputChannel.cpp \
@@ -146,7 +156,7 @@ LOCAL_SHARED_LIBRARIES := \
     libui \
     libutils \
     libziparchive
-LOCAL_LDLIBS := -lpthread -ldl -lz -licuuc -licui18n
+LOCAL_LDLIBS := -lpthread -ldl -lz -licuuc -licui18n -lEGL -lGLESv2
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_SHARED_LIBRARY)
