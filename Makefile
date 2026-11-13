@@ -75,7 +75,7 @@ endif
 
 default: ____art_all
 
-____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libui libnativewindow libgui libhwui libinput libandroid_runtime art-standalone.pc
+____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libui libnativewindow libgui libhwui libinput libandroid_runtime libmedia_jni art-standalone.pc
 
 art-standalone.pc: art-standalone.pc.in
 	sed -e 's|@prefix@|$(____PREFIX)|g' \
@@ -94,6 +94,7 @@ install:
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libandroidio.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libjavacrypto.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libandroid_runtime.so \
+	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libmedia_jni.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libbinder.so
 #
 # these are mostly internal libs which there's no point in versioning because they don't have any kind of stable ABI - so we just shove them in art/ namespace
