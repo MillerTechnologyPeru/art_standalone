@@ -2,8 +2,9 @@
  * android.view.Surface's natives over Mead's Surface (frameworks/mead/gui),
  * in place of Android 10's android_view_Surface.cpp, which talks to
  * SurfaceFlinger's buffer queues. A Surface here comes from Mead's display
- * bridge, directly or through a SurfaceControl (Mead's: a window); one
- * can't be made from a SurfaceTexture or read from a Parcel yet.
+ * bridge, directly or through a SurfaceControl (Mead's: a window), or is a
+ * SurfaceTexture's producer (MeadSurfaceTexture.h); one can't be read from
+ * a Parcel yet.
  */
 
 #define LOG_TAG "Surface"
@@ -18,6 +19,7 @@
 #include <gui/Surface.h>
 
 #include "MeadSurfaceControl.h"
+#include "MeadSurfaceTexture.h"
 #include <ui/PixelFormat.h>
 #include <ui/PublicFormat.h>
 
@@ -107,9 +109,15 @@ PublicFormat android_view_Surface_mapHalFormatDataspaceToPublicFormat(int format
     return mapHalFormatDataspaceToPublicFormat(format, dataSpace);
 }
 
-static jlong nativeCreateFromSurfaceTexture(JNIEnv* env, jclass, jobject) {
-    jniThrowException(env, kUnsupported, "Mead has no SurfaceTexture yet");
-    return 0;
+static jlong nativeCreateFromSurfaceTexture(JNIEnv* env, jclass, jobject surfaceTexture) {
+    sp<Surface> surface = mead_SurfaceTexture_getProducer(env, surfaceTexture);
+    if (surface == nullptr) {
+        jniThrowException(env, "java/lang/IllegalArgumentException",
+                          "SurfaceTexture has already been released");
+        return 0;
+    }
+    surface->incStrong(&sRefBaseOwner);
+    return reinterpret_cast<jlong>(surface.get());
 }
 
 static void nativeRelease(JNIEnv*, jclass, jlong nativeObject) {
