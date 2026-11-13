@@ -26,6 +26,9 @@
 #include <utils/misc.h>
 
 #include <assert.h>
+// Mead: the extension functions are declared here and defined by
+// mead_gles1_extensions.cpp, as the host's libGLESv1_CM may not export them.
+#define GL_GLEXT_PROTOTYPES
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 
