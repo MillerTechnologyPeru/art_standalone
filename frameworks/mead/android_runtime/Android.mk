@@ -21,6 +21,7 @@ LOCAL_SRC_FILES := \
     mead_input.cpp \
     mead_looper.cpp \
     mead_audio_system.cpp \
+    android_graphics_SurfaceTexture.cpp \
     mead_ndk_input.cpp \
     mead_ndk_asset_manager.cpp \
     mead_ndk_native_activity.cpp \
