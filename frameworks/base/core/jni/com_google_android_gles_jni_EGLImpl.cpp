@@ -18,23 +18,24 @@
 #include <nativehelper/JNIHelp.h>
 #include <android_runtime/AndroidRuntime.h>
 #include <android_runtime/android_view_Surface.h>
-#include <android_runtime/android_graphics_SurfaceTexture.h>
 #include <utils/misc.h>
 
 
 #include <EGL/egl.h>
 #include <GLES/gl.h>
-#include <private/EGL/display.h>
 
 #include <gui/Surface.h>
-#include <gui/GLConsumer.h>
-#include <gui/Surface.h>
-
-#include <GraphicsJNI.h>
-#include <SkBitmap.h>
-#include <SkPixelRef.h>
 
 #include <ui/ANativeObjectBase.h>
+
+#include <map>
+#include <mutex>
+
+// Mead: EGL is the host's, on the windowing connection Mead's windows are on
+// (as hwui's EglManager uses it), and draws to the windowing system's window
+// behind a Surface, as EGL14 does. A SurfaceTexture has no window of the
+// windowing system, and pixmaps aren't supported, as on Android.
+#include <mead/gui.h>
 
 namespace android {
 
@@ -114,6 +115,11 @@ static void endNativeAttributeList(JNIEnv *_env, jintArray attrib_list, jint* at
     }
 }
 
+// Mead: how many times each display was initialized and not terminated,
+// which Android's EGL counts (egl_get_init_count) and the host's doesn't.
+static std::mutex gInitCountLock;
+static std::map<EGLDisplay, int> gInitCounts;
+
 static jboolean jni_eglInitialize(JNIEnv *_env, jobject _this, jobject display,
         jintArray major_minor) {
     if (display == NULL || (major_minor != NULL &&
@@ -124,6 +130,10 @@ static jboolean jni_eglInitialize(JNIEnv *_env, jobject _this, jobject display,
 
     EGLDisplay dpy = getDisplay(_env, display);
     EGLBoolean success = eglInitialize(dpy, NULL, NULL);
+    if (success) {
+        std::lock_guard<std::mutex> guard(gInitCountLock);
+        gInitCounts[dpy]++;
+    }
     if (success && major_minor) {
         int len = _env->GetArrayLength(major_minor);
         if (len) {
@@ -178,7 +188,9 @@ static jboolean jni_eglQuerySurface(JNIEnv *_env, jobject _this, jobject display
 
 static jint jni_getInitCount(JNIEnv *_env, jobject _clazz, jobject display) {
     EGLDisplay dpy = getDisplay(_env, display);
-    return android::egl_get_init_count(dpy);
+    std::lock_guard<std::mutex> guard(gInitCountLock);
+    auto found = gInitCounts.find(dpy);
+    return found != gInitCounts.end() ? found->second : 0;
 }
 
 static jboolean jni_eglReleaseThread(JNIEnv *_env, jobject _this) {
@@ -279,8 +291,12 @@ not_valid_surface:
     if (window == NULL)
         goto not_valid_surface;
 
+    uintptr_t nativeWindow = 0;
+    if (window->perform(window.get(), MEAD_SURFACE_GET_NATIVE_WINDOW, &nativeWindow) != 0 || nativeWindow == 0)
+        goto not_valid_surface;
+
     jint* base = beginNativeAttribList(_env, attrib_list);
-    EGLSurface sur = eglCreateWindowSurface(dpy, cnf, window.get(), base);
+    EGLSurface sur = eglCreateWindowSurface(dpy, cnf, (EGLNativeWindowType)nativeWindow, base);
     endNativeAttributeList(_env, attrib_list, base);
     return reinterpret_cast<jlong>(sur);
 }
@@ -302,15 +318,11 @@ not_valid_surface:
         return 0;
     }
 
-    sp<IGraphicBufferProducer> producer(SurfaceTexture_getProducer(_env, native_window));
-    window = new Surface(producer, true);
-    if (window == NULL)
-        goto not_valid_surface;
-
-    jint* base = beginNativeAttribList(_env, attrib_list);
-    EGLSurface sur = eglCreateWindowSurface(dpy, cnf, window.get(), base);
-    endNativeAttributeList(_env, attrib_list, base);
-    return reinterpret_cast<jlong>(sur);
+    // Mead: a SurfaceTexture has no window of the windowing system to draw to.
+    (void)dpy;
+    (void)cnf;
+    (void)window;
+    goto not_valid_surface;
 }
 
 static jboolean jni_eglGetConfigAttrib(JNIEnv *_env, jobject _this, jobject display,
@@ -400,6 +412,14 @@ static jboolean jni_eglDestroySurface(JNIEnv *_env, jobject _this, jobject displ
 }
 
 static jlong jni_eglGetDisplay(JNIEnv *_env, jobject _this, jobject native_display) {
+    uint32_t nativeKind = 0;
+    void* nativeDisplay = nullptr;
+    mead_gui_get_native_display(&nativeKind, &nativeDisplay);
+    if (nativeKind == MEAD_GUI_NATIVE_WAYLAND || nativeKind == MEAD_GUI_NATIVE_X11) {
+        return reinterpret_cast<jlong>(eglGetPlatformDisplay(
+            nativeKind == MEAD_GUI_NATIVE_WAYLAND ? EGL_PLATFORM_WAYLAND_KHR : EGL_PLATFORM_X11_KHR,
+            nativeDisplay, nullptr));
+    }
     return reinterpret_cast<jlong>(eglGetDisplay(EGL_DEFAULT_DISPLAY));
 }
 
@@ -440,8 +460,17 @@ static jboolean jni_eglTerminate(JNIEnv *_env, jobject _this, jobject display) {
         jniThrowException(_env, "java/lang/IllegalArgumentException", NULL);
         return JNI_FALSE;
     }
+    // Mead: Android's EGL keeps a display until its last terminate, and other
+    // users of the host's display (Mead's windows, hwui) aren't counted, so
+    // the display stays; the thread lets go of its context, as Mead's EGL
+    // for apps' native code does.
     EGLDisplay dpy = getDisplay(_env, display);
-    return EglBoolToJBool(eglTerminate(dpy));
+    {
+        std::lock_guard<std::mutex> guard(gInitCountLock);
+        auto found = gInitCounts.find(dpy);
+        if (found != gInitCounts.end() && found->second > 0) found->second--;
+    }
+    return EglBoolToJBool(eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT));
 }
 
 static jboolean jni_eglCopyBuffers(JNIEnv *_env, jobject _this, jobject display,
