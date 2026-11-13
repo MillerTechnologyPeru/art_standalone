@@ -26,12 +26,17 @@ LOCAL_SRC_FILES := \
     mead_ndk_asset_manager.cpp \
     mead_ndk_native_activity.cpp \
     mead_ndk_configuration.cpp \
+    mead_ndk_binder.cpp \
+    mead_ndk_binder_newer.cpp \
     ../../base/core/jni/android_app_NativeActivity.cpp \
     ../../base/core/jni/android_view_InputQueue.cpp \
     ../../base/core/jni/android_opengl_EGL14.cpp \
     ../../base/core/jni/android_opengl_GLES20.cpp \
     ../../base/core/jni/android_opengl_GLES30.cpp \
     ../../base/core/jni/android_opengl_GLES31.cpp \
+    ../../base/core/jni/com_google_android_gles_jni_EGLImpl.cpp \
+    ../../base/core/jni/com_google_android_gles_jni_GLImpl.cpp \
+    mead_gles1_extensions.cpp \
     ../../../libandroidfw/DisplayEventDispatcher.cpp \
     ../../base/core/jni/android_view_DisplayEventReceiver.cpp \
     ../../base/core/jni/android_view_InputChannel.cpp \
@@ -121,6 +126,8 @@ LOCAL_C_INCLUDES := \
     $(android_runtime_jni) \
     $(android_runtime_jni)/include \
     $(LOCAL_PATH)/include \
+    frameworks/native/libs/binder/ndk/include_ndk \
+    frameworks/native/libs/binder/ndk/include_apex \
     $(android_runtime_jni)/android/graphics \
     external/libjpeg-turbo \
     frameworks/mead/egl/include \
@@ -157,7 +164,7 @@ LOCAL_SHARED_LIBRARIES := \
     libui \
     libutils \
     libziparchive
-LOCAL_LDLIBS := -lpthread -ldl -lz -licuuc -licui18n -lEGL -lGLESv2
+LOCAL_LDLIBS := -lpthread -ldl -lz -licuuc -licui18n -lEGL -lGLESv1_CM -lGLESv2
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MULTILIB := both
 include $(BUILD_HOST_SHARED_LIBRARY)
