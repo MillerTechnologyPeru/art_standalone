@@ -106,6 +106,7 @@ extern int register_android_database_SQLiteGlobal(JNIEnv* env);
 extern int register_android_database_SQLiteDebug(JNIEnv* env);
 extern int register_android_view_InputChannel(JNIEnv* env);
 extern int register_android_view_InputQueue(JNIEnv* env);
+extern int register_android_graphics_SurfaceTexture(JNIEnv* env);
 extern int register_android_app_NativeActivity(JNIEnv* env);
 extern int register_android_view_InputEventReceiver(JNIEnv* env);
 extern int register_android_view_KeyEvent(JNIEnv* env);
@@ -406,6 +407,7 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_database_SQLiteDebug),
     REG_JNI(register_android_view_InputChannel),
     REG_JNI(register_android_view_InputQueue),
+    REG_JNI(register_android_graphics_SurfaceTexture),
     REG_JNI(register_android_app_NativeActivity),
     REG_JNI(register_android_opengl_jni_EGL14),
     REG_JNI(register_android_opengl_jni_GLES20),
