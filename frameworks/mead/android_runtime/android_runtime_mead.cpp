@@ -66,6 +66,8 @@ extern int register_android_opengl_jni_EGL14(JNIEnv* env);
 extern int register_android_opengl_jni_GLES20(JNIEnv* env);
 extern int register_android_opengl_jni_GLES30(JNIEnv* env);
 extern int register_android_opengl_jni_GLES31(JNIEnv* env);
+extern int register_com_google_android_gles_jni_EGLImpl(JNIEnv* env);
+extern int register_com_google_android_gles_jni_GLImpl(JNIEnv* env);
 
 namespace android {
 
@@ -413,6 +415,8 @@ static const RegJNIRec gRegJNI[] = {
     REG_JNI(register_android_opengl_jni_GLES20),
     REG_JNI(register_android_opengl_jni_GLES30),
     REG_JNI(register_android_opengl_jni_GLES31),
+    REG_JNI(register_com_google_android_gles_jni_EGLImpl),
+    REG_JNI(register_com_google_android_gles_jni_GLImpl),
     REG_JNI(register_android_view_InputEventReceiver),
     REG_JNI(register_android_view_KeyEvent),
     REG_JNI(register_android_view_MotionEvent),
