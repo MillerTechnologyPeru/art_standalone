@@ -75,7 +75,10 @@ endif
 
 default: ____art_all
 
-____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libui libnativewindow libgui libhwui libinput libandroid_runtime libmedia_jni art-standalone.pc
+# Mead: the WebView engine, where the host has WPE WebKit 2.x.
+____mead_webkit := $(shell pkg-config --exists wpe-webkit-2.0 wpebackend-fdo-1.0 wpe-web-process-extension-2.0 && echo libmead_webkit libmead_webkit_extension)
+
+____art_all: $(____dl_bio_fallback) dalvikvm art dex2oat libnativehelper libandroidio libjavacore libopenjdk libopenjdkjvm libjavacrypto libandroidfw libbinder libui libnativewindow libgui libhwui libinput libandroid_runtime libmedia_jni $(____mead_webkit) art-standalone.pc
 
 art-standalone.pc: art-standalone.pc.in
 	sed -e 's|@prefix@|$(____PREFIX)|g' \
@@ -96,6 +99,8 @@ install:
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libandroid_runtime.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libmedia_jni.so \
 	                                                        $(____TOPDIR)/out/host/linux-x86/lib64/libbinder.so
+	$(if $(____mead_webkit),install -Dt $(____INSTALL_LIBDIR)/java/dex/art/natives/ $(____TOPDIR)/out/host/linux-x86/lib64/libmead_webkit.so)
+	$(if $(____mead_webkit),install -Dt $(____INSTALL_LIBDIR)/java/dex/art/natives/webkit-extensions/ $(____TOPDIR)/out/host/linux-x86/lib64/libmead_webkit_extension.so)
 #
 # these are mostly internal libs which there's no point in versioning because they don't have any kind of stable ABI - so we just shove them in art/ namespace
 # even the libunwind is actually a fork of libunwind 1.1 with added stuff that will likely never be upstreamed, especially since google stopped using libunwind
