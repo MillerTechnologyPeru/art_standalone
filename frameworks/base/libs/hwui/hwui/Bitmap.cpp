@@ -216,6 +216,51 @@ Bitmap::Bitmap(void* address, int fd, size_t mappedSize, const SkImageInfo& info
     mPixelStorage.ashmem.size = mappedSize;
 }
 
+#ifdef HWUI_MEAD_WINDOWS
+// Mead: its graphics buffers are shared memory (MeadGralloc), which the host's
+// EGL can't make an image of, so a hardware bitmap's image is a raster image of
+// its buffer's pixels, which Skia uploads to the GPU as it does any other. The
+// image holds the buffer, mapped, for as long as it lasts.
+static void releaseMeadBuffer(const void*, void* context) {
+    GraphicBuffer* buffer = static_cast<GraphicBuffer*>(context);
+    buffer->unlock();
+    buffer->decStrong(buffer);
+}
+
+static sk_sp<SkImage> makeMeadBufferImage(GraphicBuffer* buffer, const SkImageInfo& info) {
+    SkColorType colorType;
+    switch (buffer->getPixelFormat()) {
+        case PIXEL_FORMAT_RGBA_8888:
+            colorType = kRGBA_8888_SkColorType;
+            break;
+        case PIXEL_FORMAT_RGBX_8888:
+            colorType = kRGB_888x_SkColorType;
+            break;
+        case PIXEL_FORMAT_RGBA_FP16:
+            colorType = kRGBA_F16_SkColorType;
+            break;
+        case PIXEL_FORMAT_RGB_565:
+            colorType = kRGB_565_SkColorType;
+            break;
+        default:
+            ALOGW("unable to draw a hardware bitmap of pixel format %d",
+                  buffer->getPixelFormat());
+            return nullptr;
+    }
+    void* pixels = nullptr;
+    if (buffer->lock(GraphicBuffer::USAGE_SW_READ_OFTEN, &pixels) != OK || pixels == nullptr) {
+        ALOGW("unable to map a hardware bitmap's buffer");
+        return nullptr;
+    }
+    SkImageInfo imageInfo = info.makeColorType(colorType);
+    size_t rowBytes = imageInfo.bytesPerPixel() * buffer->getStride();
+    buffer->incStrong(buffer);
+    sk_sp<SkData> data = SkData::MakeWithProc(pixels, rowBytes * buffer->getHeight(),
+                                              releaseMeadBuffer, buffer);
+    return SkImage::MakeRasterData(imageInfo, std::move(data), rowBytes);
+}
+#endif
+
 Bitmap::Bitmap(GraphicBuffer* buffer, const SkImageInfo& info, BitmapPalette palette)
         : SkPixelRef(info.width(), info.height(), nullptr,
                      bytesPerPixel(buffer->getPixelFormat()) * buffer->getStride())
@@ -226,8 +271,12 @@ Bitmap::Bitmap(GraphicBuffer* buffer, const SkImageInfo& info, BitmapPalette pal
     mPixelStorage.hardware.buffer = buffer;
     buffer->incStrong(buffer);
     setImmutable();  // HW bitmaps are always immutable
+#ifdef HWUI_MEAD_WINDOWS
+    mImage = makeMeadBufferImage(buffer, mInfo);
+#else
     mImage = SkImage::MakeFromAHardwareBuffer(reinterpret_cast<AHardwareBuffer*>(buffer),
                                               mInfo.alphaType(), mInfo.refColorSpace());
+#endif
 }
 
 Bitmap::~Bitmap() {
