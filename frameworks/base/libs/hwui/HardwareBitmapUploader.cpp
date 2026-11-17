@@ -360,6 +360,46 @@ static SkBitmap makeHwCompatible(const FormatInfo& format, const SkBitmap& sourc
 }
 
 
+#ifdef HWUI_MEAD_WINDOWS
+// Mead: its graphics buffers are shared memory (MeadGralloc), which the host's
+// EGL can't make an image of, so a hardware bitmap's pixels are copied into its
+// buffer, converted to the buffer's format as the GPU would on Android, and
+// Bitmap draws them from there.
+static bool uploadToMeadBuffer(const SkBitmap& bitmap, const FormatInfo& format,
+                               const sp<GraphicBuffer>& buffer) {
+    ATRACE_CALL();
+    SkColorType colorType;
+    switch (format.pixelFormat) {
+        case PIXEL_FORMAT_RGBA_8888:
+            colorType = kRGBA_8888_SkColorType;
+            break;
+        case PIXEL_FORMAT_RGBA_FP16:
+            colorType = kRGBA_F16_SkColorType;
+            break;
+        case PIXEL_FORMAT_RGB_565:
+            colorType = kRGB_565_SkColorType;
+            break;
+        default:
+            ALOGW("unable to upload a hardware bitmap of pixel format %d", format.pixelFormat);
+            return false;
+    }
+    void* pixels = nullptr;
+    if (buffer->lock(GraphicBuffer::USAGE_SW_WRITE_OFTEN, &pixels) != OK || pixels == nullptr) {
+        ALOGW("unable to map a hardware bitmap's buffer");
+        return false;
+    }
+    SkImageInfo info = SkImageInfo::Make(bitmap.width(), bitmap.height(), colorType,
+                                         bitmap.alphaType(), bitmap.refColorSpace());
+    size_t rowBytes = info.bytesPerPixel() * buffer->getStride();
+    bool copied = bitmap.readPixels(info, pixels, rowBytes, 0, 0);
+    buffer->unlock();
+    if (!copied) {
+        ALOGW("unable to copy a hardware bitmap's pixels to its buffer");
+    }
+    return copied;
+}
+#endif
+
 static void createUploader(bool usingGL) {
     static std::mutex lock;
     std::lock_guard _lock{lock};
@@ -398,11 +438,17 @@ sk_sp<Bitmap> HardwareBitmapUploader::allocateHardwareBitmap(const SkBitmap& sou
         return nullptr;
     }
 
+#ifdef HWUI_MEAD_WINDOWS
+    if (!uploadToMeadBuffer(bitmap, format, buffer)) {
+        return nullptr;
+    }
+#else
     createUploader(usingGL);
 
     if (!sUploader->uploadHardwareBitmap(bitmap, format, buffer)) {
         return nullptr;
     }
+#endif
     return Bitmap::createFrom(buffer, bitmap.colorType(), bitmap.refColorSpace(),
                               bitmap.alphaType(), Bitmap::computePalette(bitmap));
 }
