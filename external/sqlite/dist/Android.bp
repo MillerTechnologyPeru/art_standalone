@@ -39,6 +39,9 @@ cc_defaults {
         "-DSQLITE_ENABLE_BATCH_ATOMIC_WRITE",
         "-DBIONIC_IOCTL_NO_SIGNEDNESS_OVERLOAD",
         "-DSQLITE_PRINTF_PRECISION_LIMIT=100000000",
+        // Mead: Android 11 and later build SQLite with the legacy ALTER TABLE, as
+        // their SQLite (Android 13's 3.32.2, here) expects.
+        "-DSQLITE_DEFAULT_LEGACY_ALTER_TABLE",
         "-Wno-unused-parameter",
         "-Werror",
     ],
