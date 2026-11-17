@@ -409,7 +409,15 @@ void EglManager::destroy() {
         eglDestroySurface(mEglDisplay, mPBufferSurface);
     }
     eglMakeCurrent(mEglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+#ifdef HWUI_MEAD_WINDOWS
+    // Mead: Android's EGL counts eglInitialize and ends a display at its last
+    // eglTerminate; the host's ends it at the first. hwui's EGL managers (the
+    // render thread's and the bitmap uploader's) and the app's own EGL share
+    // the host's display, so one's eglTerminate would end it under the others.
+    // It's left initialized, as Android's is while anything else uses it.
+#else
     eglTerminate(mEglDisplay);
+#endif
     eglReleaseThread();
 
     mEglDisplay = EGL_NO_DISPLAY;
