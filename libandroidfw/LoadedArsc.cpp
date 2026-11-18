@@ -373,16 +373,31 @@ uint32_t LoadedPackage::FindEntryByName(const std::u16string& type_name,
     const ResTable_type* type = *iter;
     size_t entry_count = dtohl(type->entryCount);
     for (size_t entry_idx = 0; entry_idx < entry_count; entry_idx++) {
-      const uint32_t* entry_offsets = reinterpret_cast<const uint32_t*>(
-          reinterpret_cast<const uint8_t*>(type) + dtohs(type->header.headerSize));
-      const uint32_t offset = dtohl(entry_offsets[entry_idx]);
+      // Mead: a sparse type's entries are (index, offset / 4) pairs, as
+      // Android 14's FindEntryByName reads them; Android 10's read them as
+      // a dense table of offsets, past the type's end. Apps built for
+      // Android 8 and later can have sparse types (YouTube does).
+      uint32_t offset;
+      uint16_t res_idx;
+      if (type->flags & ResTable_type::FLAG_SPARSE) {
+        const ResTable_sparseTypeEntry* sparse_entries =
+            reinterpret_cast<const ResTable_sparseTypeEntry*>(
+                reinterpret_cast<const uint8_t*>(type) + dtohs(type->header.headerSize));
+        offset = dtohs(sparse_entries[entry_idx].offset) * 4u;
+        res_idx = dtohs(sparse_entries[entry_idx].idx);
+      } else {
+        const uint32_t* entry_offsets = reinterpret_cast<const uint32_t*>(
+            reinterpret_cast<const uint8_t*>(type) + dtohs(type->header.headerSize));
+        offset = dtohl(entry_offsets[entry_idx]);
+        res_idx = entry_idx;
+      }
       if (offset != ResTable_type::NO_ENTRY) {
         const ResTable_entry* entry = reinterpret_cast<const ResTable_entry*>(
             reinterpret_cast<const uint8_t*>(type) + dtohl(type->entriesStart) + offset);
         if (dtohl(entry->key.index) == static_cast<uint32_t>(key_idx)) {
           // The package ID will be overridden by the caller (due to runtime assignment of package
           // IDs for shared libraries).
-          return make_resid(0x00, type_idx + type_id_offset_ + 1, entry_idx);
+          return make_resid(0x00, type_idx + type_id_offset_ + 1, res_idx);
         }
       }
     }
